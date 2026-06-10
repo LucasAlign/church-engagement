@@ -72,11 +72,31 @@ export function Header({ title, subtitle, actions }) {
   );
 }
 
+function BackendBanner() {
+  const { backend, backendError } = useDb();
+  if (backend === 'demo') {
+    return (
+      <div className="backend-banner backend-banner-demo">
+        Demo mode — changes are not saved. Connect Supabase to enable saving (see README).
+      </div>
+    );
+  }
+  if (backend === 'error') {
+    return (
+      <div className="backend-banner backend-banner-error">
+        Could not reach the database — showing sample data, changes will not be saved. ({backendError})
+      </div>
+    );
+  }
+  return null;
+}
+
 export function AppShell({ children }) {
   return (
     <div className="app-shell">
       <Sidebar />
       <main className="main">
+        <BackendBanner />
         <div className="page">{children}</div>
       </main>
     </div>

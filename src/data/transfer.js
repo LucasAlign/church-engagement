@@ -5,6 +5,7 @@
 // confirms before it is applied to the db.
 import * as XLSX from 'xlsx';
 import db from './db.js';
+import { saveRecord } from './backend.js';
 import { genId, TODAY } from './helpers.js';
 import {
   ENGAGEMENT_STATUS, GIVING_TYPE, INTERACTION_TYPE, MINISTRY_TYPE, MINISTRY_STATUS,
@@ -376,6 +377,7 @@ export function applyImport(groups, selected) {
       if (item.action === 'update') {
         Object.assign(item.existing, item.record);
         if (ent.key === 'churches') item.existing.updatedAt = TODAY;
+        saveRecord(ent.collection, item.existing);
         updated += 1;
       } else if (item.action === 'new') {
         const rec = { id: genId(ent.idPrefix), ...(ent.defaults?.() || {}), ...item.record };
@@ -385,6 +387,7 @@ export function applyImport(groups, selected) {
           if (!rec.churchId) continue;
         }
         db[ent.collection].push(rec);
+        saveRecord(ent.collection, rec);
         created += 1;
       }
     }

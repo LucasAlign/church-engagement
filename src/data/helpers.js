@@ -1,16 +1,22 @@
-// helpers.js — derived values over the mock db.
-// When moving to a real backend, replace each with a Supabase query or SQL view.
+// helpers.js — derived values over the in-memory db.
+// Mutations write through to Supabase when configured (see backend.js).
 import db from './db.js';
+import { saveRecord } from './backend.js';
 
-// Frozen "today" so the prototype renders deterministically.
-export const TODAY = '2026-06-09';
+// Today's date in the user's local timezone, as YYYY-MM-DD.
+const _now = new Date();
+export const TODAY = new Date(_now.getTime() - _now.getTimezoneOffset() * 6e4).toISOString().slice(0, 10);
+const THIS_YEAR = TODAY.slice(0, 4);
+const THIS_YEAR_START = `${THIS_YEAR}-01-01`;
+const THIS_MONTH_START = `${TODAY.slice(0, 7)}-01`;
+const LAST_YEAR_START = `${parseInt(THIS_YEAR) - 1}-01-01`;
 
 // Dashboard summary cards
 export function getDashboardStats() {
   const now = new Date(TODAY);
   const ninetyDaysAgo = new Date(now - 90 * 864e5).toISOString().slice(0, 10);
-  const thisYearStart = '2026-01-01';
-  const thisMonthStart = '2026-06-01';
+  const thisYearStart = THIS_YEAR_START;
+  const thisMonthStart = THIS_MONTH_START;
   return {
     totalChurches: db.churches.length,
     activePartners: db.churches.filter(c =>
@@ -40,8 +46,8 @@ export function getDashboardStats() {
 // Church profile — aggregate giving summary
 export function getChurchGivingSummary(churchId) {
   const records = db.givingRecords.filter(g => g.churchId === churchId);
-  const thisYear = records.filter(g => g.date >= '2026-01-01');
-  const lastYear = records.filter(g => g.date >= '2025-01-01' && g.date < '2026-01-01');
+  const thisYear = records.filter(g => g.date >= THIS_YEAR_START);
+  const lastYear = records.filter(g => g.date >= LAST_YEAR_START && g.date < THIS_YEAR_START);
   const total = records.reduce((s, g) => s + g.amount, 0);
   const thisYearTotal = thisYear.reduce((s, g) => s + g.amount, 0);
   const lastYearTotal = lastYear.reduce((s, g) => s + g.amount, 0);
@@ -59,7 +65,7 @@ export function getChurchGivingSummary(churchId) {
 // Churches needing attention flags
 export function getAttentionFlags() {
   const ninetyDaysAgo = new Date(new Date(TODAY) - 90 * 864e5).toISOString().slice(0, 10);
-  const currentYear = '2026';
+  const currentYear = THIS_YEAR;
   const flags = [];
   for (const church of db.churches) {
     if (church.lastInteractionDate < ninetyDaysAgo)
@@ -146,7 +152,7 @@ export function getPipelineCounts() {
 // Top giving partners (year-to-date), descending
 export function getTopGivingPartners(limit = 6) {
   const totals = {};
-  for (const g of db.givingRecords.filter(g => g.date >= '2026-01-01')) {
+  for (const g of db.givingRecords.filter(g => g.date >= THIS_YEAR_START)) {
     totals[g.churchId] = (totals[g.churchId] || 0) + g.amount;
   }
   return Object.entries(totals)
@@ -157,9 +163,9 @@ export function getTopGivingPartners(limit = 6) {
 
 // Giving page summary
 export function getGivingStats() {
-  const ytd = db.givingRecords.filter(g => g.date >= '2026-01-01');
-  const priorYear = db.givingRecords.filter(g => g.date >= '2025-01-01' && g.date < '2026-01-01');
-  const thisMonth = db.givingRecords.filter(g => g.date >= '2026-06-01');
+  const ytd = db.givingRecords.filter(g => g.date >= THIS_YEAR_START);
+  const priorYear = db.givingRecords.filter(g => g.date >= LAST_YEAR_START && g.date < THIS_YEAR_START);
+  const thisMonth = db.givingRecords.filter(g => g.date >= THIS_MONTH_START);
   const ytdTotal = ytd.reduce((s, g) => s + g.amount, 0);
   const priorTotal = priorYear.reduce((s, g) => s + g.amount, 0);
   return {
@@ -180,112 +186,113 @@ export function getGivingStatusBreakdown() {
 }
 
 // Active/strategic partners missing the current-cycle impact report
-export function getMissingReports(year = 2025) {
+export function getMissingReports(year = parseInt(THIS_YEAR) - 1) {
   return db.churches.filter(c =>
     ['active_partner', 'strategic_partner'].includes(c.engagementStatus) &&
     !db.impactReports.some(r => r.churchId === c.id && r.year === year));
 }
 
-// --- prototype-only mutations; swap for Supabase inserts/updates later ---
-let seq = 100;
+// --- mutations; each writes through to Supabase when configured ---
+
+// Timestamp + randomness so ids never collide across devices or sessions.
 export function genId(prefix) {
-  return `${prefix}_${++seq}`;
+  return `${prefix}_${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
 }
-function findIn(collection, id) {
-  return db[collection].find(r => r.id === id);
+function insert(collection, record, atFront = false) {
+  if (atFront) db[collection].unshift(record);
+  else db[collection].push(record);
+  saveRecord(collection, record);
+  return record;
+}
+function update(collection, id, ...patches) {
+  const record = db[collection].find(r => r.id === id);
+  if (!record) return null;
+  Object.assign(record, ...patches);
+  saveRecord(collection, record);
+  return record;
 }
 export function addChurch(values) {
-  db.churches.push({
+  insert('churches', {
     id: genId('ch'), notes: null, createdAt: TODAY, updatedAt: TODAY,
     lastInteractionDate: values.firstContactDate || TODAY, ...values,
   });
 }
 export function updateChurch(id, values) {
-  const church = findIn('churches', id);
-  if (church) Object.assign(church, values, { updatedAt: TODAY });
+  update('churches', id, values, { updatedAt: TODAY });
 }
 export function updateCareCommunity(id, values) {
-  const cc = findIn('careCommunities', id);
-  if (cc) Object.assign(cc, values);
+  update('careCommunities', id, values);
 }
 export function updateAdvocate(id, values) {
-  const adv = findIn('advocates', id);
-  if (adv) Object.assign(adv, values);
+  update('advocates', id, values);
 }
 export function updateConnection(id, values) {
-  const cx = findIn('connections', id);
-  if (cx) Object.assign(cx, values);
+  update('connections', id, values);
 }
 export function addMinistryEngagement(values) {
-  db.ministryEngagements.push({ id: genId('min'), coordinatorId: null, notes: null, ...values });
+  insert('ministryEngagements', { id: genId('min'), coordinatorId: null, notes: null, ...values });
 }
 export function updateMinistryEngagement(id, values) {
-  const m = findIn('ministryEngagements', id);
-  if (m) Object.assign(m, values);
+  update('ministryEngagements', id, values);
 }
 export function addGivingRecord(values) {
-  db.givingRecords.push({ id: genId('giv'), ...values });
+  insert('givingRecords', { id: genId('giv'), ...values });
 }
 export function updateGivingRecord(id, values) {
-  const g = findIn('givingRecords', id);
-  if (g) Object.assign(g, values);
+  update('givingRecords', id, values);
 }
 export function addTask(values) {
-  db.tasks.push({ id: genId('tsk'), status: 'open', createdAt: TODAY, ...values });
+  insert('tasks', { id: genId('tsk'), status: 'open', createdAt: TODAY, ...values });
 }
 export function updateTask(id, values) {
-  const task = findIn('tasks', id);
-  if (task) Object.assign(task, values);
+  update('tasks', id, values);
 }
 export function updateNote(id, values) {
-  const note = db.churchNotes.find(n => n.id === id);
-  if (note) Object.assign(note, values);
+  update('churchNotes', id, values);
 }
 export function addImpactReport(values) {
-  db.impactReports.unshift({ id: genId('rpt'), uploadedBy: 'usr_001', uploadedAt: TODAY, fileType: 'pdf', ...values });
+  insert('impactReports', { id: genId('rpt'), uploadedBy: 'usr_001', uploadedAt: TODAY, fileType: 'pdf', ...values }, true);
 }
 export function replaceImpactReport(id, values) {
-  const rpt = findIn('impactReports', id);
-  if (rpt) Object.assign(rpt, values, { uploadedBy: 'usr_001', uploadedAt: TODAY });
+  update('impactReports', id, values, { uploadedBy: 'usr_001', uploadedAt: TODAY });
 }
 export function updateUser(id, values) {
-  const user = findIn('users', id);
-  if (user) Object.assign(user, values);
+  update('users', id, values);
 }
 export function addContact(values) {
-  db.contacts.push({ id: genId('con'), archived: false, ...values });
+  insert('contacts', { id: genId('con'), archived: false, ...values });
 }
 export function updateContact(id, values) {
-  const contact = db.contacts.find(c => c.id === id);
-  if (contact) Object.assign(contact, values);
+  update('contacts', id, values);
 }
 export function archiveContact(id) {
-  const contact = db.contacts.find(c => c.id === id);
-  if (contact) contact.archived = true;
+  update('contacts', id, { archived: true });
 }
 export function addCareCommunity(values) {
-  db.careCommunities.push({ id: genId('cc'), members: [], ...values });
+  insert('careCommunities', { id: genId('cc'), members: [], ...values });
 }
 export function addAdvocate(values) {
-  db.advocates.push({ id: genId('adv'), ...values });
+  insert('advocates', { id: genId('adv'), ...values });
 }
 export function addConnection(values) {
-  db.connections.push({ id: genId('cx'), ...values });
+  insert('connections', { id: genId('cx'), ...values });
 }
 export function addInteraction({ churchId, type, date, notes }) {
-  db.interactions.unshift({
-    id: `int_${++seq}`, churchId, contactId: null, type, date, userId: 'usr_001', notes, attendeeCount: null,
-  });
+  insert('interactions', {
+    id: genId('int'), churchId, contactId: null, type, date, userId: 'usr_001', notes, attendeeCount: null,
+  }, true);
   const church = getChurchById(churchId);
-  if (church && date > church.lastInteractionDate) church.lastInteractionDate = date;
+  if (church && date > church.lastInteractionDate) {
+    update('churches', churchId, { lastInteractionDate: date });
+  }
 }
 export function addNote({ churchId, body, pinned, internalOnly }) {
-  db.churchNotes.unshift({
-    id: `note_${++seq}`, churchId, body, authorId: 'usr_001', pinned, internalOnly, createdAt: TODAY,
-  });
+  insert('churchNotes', {
+    id: genId('note'), churchId, body, authorId: 'usr_001', pinned, internalOnly, createdAt: TODAY,
+  }, true);
 }
 export function toggleTaskCompleted(taskId) {
   const task = db.tasks.find(t => t.id === taskId);
   if (!task) return;
-  task.status = task.status === 'completed' ? 'open' : 'completed';
+  update('tasks', taskId, { status: task.status === 'completed' ? 'open' : 'completed' });
 }

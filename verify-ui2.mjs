@@ -75,7 +75,9 @@ log(download.suggestedFilename().endsWith('.pdf'), `Reports: Download fires (${d
 await seeded.getByRole('button', { name: 'Replace' }).click();
 await page.locator('input[type="file"][accept=".pdf"]').first().setInputFiles(pdfPath);
 await page.waitForTimeout(100);
-log((await seeded.textContent()).includes('Uploaded Jun 9, 2026'), 'Reports: Replace updates upload date');
+// TODAY in the app is the real current date, formatted like fmtDate in labels.js.
+const todayLabel = (d => `${['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`)(new Date());
+log((await seeded.textContent()).includes(`Uploaded ${todayLabel}`), 'Reports: Replace updates upload date');
 
 // ---------- /churches: Export + Import ----------
 await page.goto(`${BASE}/#/churches`);
