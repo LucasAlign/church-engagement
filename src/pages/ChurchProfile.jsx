@@ -9,7 +9,8 @@ import {
   getChurchById, getContactsByChurch, getInteractionsByChurch, getTasksByChurch,
   getNotesByChurch, getMinistryByChurch, getChurchGivingSummary, getUserById,
   getContactById, getCareCommunitiesByChurch, getAdvocatesByChurch,
-  getConnectionsByChurch, isTaskOverdue, addNote, toggleTaskCompleted, archiveContact,
+  getConnectionsByChurch, isTaskOverdue, addNote, updateNote, toggleTaskCompleted,
+  archiveContact,
 } from '../data/helpers.js';
 import {
   ENGAGEMENT_STATUS, GIVING_STATUS, GIVING_TYPE, INTERACTION_TYPE, MINISTRY_TYPE,
@@ -21,6 +22,7 @@ import { Badge, MetricCard, AvatarInitials, EmptyState } from '../components/sha
 import LogInteractionModal from '../components/LogInteractionModal.jsx';
 import {
   StaffModal, CareCommunityModal, AdvocateModal, ConnectionModal,
+  ChurchModal, MinistryModal, GivingRecordModal, TaskModal,
 } from '../components/EntityModals.jsx';
 import { useDb } from '../data/store.jsx';
 
@@ -113,12 +115,12 @@ function StaffTab({ church }) {
 }
 
 function CareCommunitiesTab({ church }) {
-  const [adding, setAdding] = useState(false);
+  const [modal, setModal] = useState(null); // { community? } when open
   const communities = getCareCommunitiesByChurch(church.id);
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button className="btn primary" onClick={() => setAdding(true)}><IconPlus stroke={2} /> Add care community</button>
+        <button className="btn primary" onClick={() => setModal({})}><IconPlus stroke={2} /> Add care community</button>
       </div>
       {!communities.length && (
         <div className="card">
@@ -143,22 +145,25 @@ function CareCommunitiesTab({ church }) {
                 )}
                 {cc.notes && <div>{cc.notes}</div>}
               </div>
+              <div className="pc-actions" style={{ marginTop: 10 }}>
+                <button className="btn sm" onClick={() => setModal({ community: cc })}><IconPencil stroke={1.75} /> Edit</button>
+              </div>
             </div>
           );
         })}
       </div>
-      {adding && <CareCommunityModal churchId={church.id} onClose={() => setAdding(false)} />}
+      {modal && <CareCommunityModal churchId={church.id} community={modal.community} onClose={() => setModal(null)} />}
     </>
   );
 }
 
 function AdvocatesTab({ church }) {
-  const [adding, setAdding] = useState(false);
+  const [modal, setModal] = useState(null); // { advocate? } when open
   const advocates = getAdvocatesByChurch(church.id);
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button className="btn primary" onClick={() => setAdding(true)}><IconPlus stroke={2} /> Add advocate</button>
+        <button className="btn primary" onClick={() => setModal({})}><IconPlus stroke={2} /> Add advocate</button>
       </div>
       {!advocates.length && (
         <div className="card">
@@ -186,22 +191,25 @@ function AdvocatesTab({ church }) {
                   {a.notes ? ` · ${a.notes}` : ''}
                 </span>
               </div>
+              <div className="pc-actions">
+                <button className="btn sm" onClick={() => setModal({ advocate: a })}><IconPencil stroke={1.75} /> Edit</button>
+              </div>
             </div>
           );
         })}
       </div>
-      {adding && <AdvocateModal churchId={church.id} onClose={() => setAdding(false)} />}
+      {modal && <AdvocateModal churchId={church.id} advocate={modal.advocate} onClose={() => setModal(null)} />}
     </>
   );
 }
 
 function ConnectionsTab({ church }) {
-  const [adding, setAdding] = useState(false);
+  const [modal, setModal] = useState(null); // { connection? } when open
   const connections = getConnectionsByChurch(church.id);
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button className="btn primary" onClick={() => setAdding(true)}><IconPlus stroke={2} /> Add connection</button>
+        <button className="btn primary" onClick={() => setModal({})}><IconPlus stroke={2} /> Add connection</button>
       </div>
       {!connections.length ? (
         <div className="card">
@@ -211,7 +219,7 @@ function ConnectionsTab({ church }) {
         <div className="card" style={{ overflow: 'hidden' }}>
           <table className="data-table">
             <thead>
-              <tr><th>Name</th><th>Connection</th><th>Email</th><th>Phone</th><th>Status</th><th>Notes</th></tr>
+              <tr><th>Name</th><th>Connection</th><th>Email</th><th>Phone</th><th>Status</th><th>Notes</th><th /></tr>
             </thead>
             <tbody>
               {connections.map(cx => {
@@ -225,6 +233,7 @@ function ConnectionsTab({ church }) {
                     <td className="cell-muted">{cx.phone || '—'}</td>
                     <td><Badge label={status.label} variant={status.variant} /></td>
                     <td className="cell-muted">{cx.notes || ''}</td>
+                    <td><button className="btn sm" onClick={() => setModal({ connection: cx })}><IconPencil stroke={1.75} /> Edit</button></td>
                   </tr>
                 );
               })}
@@ -232,7 +241,7 @@ function ConnectionsTab({ church }) {
           </table>
         </div>
       )}
-      {adding && <ConnectionModal churchId={church.id} onClose={() => setAdding(false)} />}
+      {modal && <ConnectionModal churchId={church.id} connection={modal.connection} onClose={() => setModal(null)} />}
     </>
   );
 }
@@ -267,34 +276,45 @@ function TimelineTab({ church, onLog }) {
 }
 
 function MinistryTab({ church }) {
+  const [modal, setModal] = useState(null); // { engagement? } when open
   const engagements = getMinistryByChurch(church.id);
-  if (!engagements.length) {
-    return <div className="card"><EmptyState icon={IconBuildingChurch} title="No ministry engagements yet" /></div>;
-  }
   return (
-    <div className="ministry-grid">
-      {engagements.map(m => {
-        const status = MINISTRY_STATUS[m.status];
-        const coordinator = m.coordinatorId ? getContactById(m.coordinatorId) : null;
-        return (
-          <div className={`card ministry-card ${m.status === 'active' ? 'active-ministry' : ''}`} key={m.id}>
-            <div className="mc-head">
-              <span className="mc-name">{MINISTRY_TYPE[m.ministry]}</span>
-              <Badge label={status.label} variant={status.variant} />
+    <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button className="btn primary" onClick={() => setModal({})}><IconPlus stroke={2} /> Add ministry</button>
+      </div>
+      {!engagements.length && (
+        <div className="card"><EmptyState icon={IconBuildingChurch} title="No ministry engagements yet" sub="Add the first ministry engagement for this church." /></div>
+      )}
+      <div className="ministry-grid">
+        {engagements.map(m => {
+          const status = MINISTRY_STATUS[m.status];
+          const coordinator = m.coordinatorId ? getContactById(m.coordinatorId) : null;
+          return (
+            <div className={`card ministry-card ${m.status === 'active' ? 'active-ministry' : ''}`} key={m.id}>
+              <div className="mc-head">
+                <span className="mc-name">{MINISTRY_TYPE[m.ministry]}</span>
+                <Badge label={status.label} variant={status.variant} />
+              </div>
+              <div className="mc-meta">
+                {m.startDate && <div>Since {fmtDate(m.startDate)}</div>}
+                {coordinator && <div>Coordinator: {coordinator.name}</div>}
+                {m.notes && <div>{m.notes}</div>}
+              </div>
+              <div className="pc-actions" style={{ marginTop: 10 }}>
+                <button className="btn sm" onClick={() => setModal({ engagement: m })}><IconPencil stroke={1.75} /> Edit</button>
+              </div>
             </div>
-            <div className="mc-meta">
-              {m.startDate && <div>Since {fmtDate(m.startDate)}</div>}
-              {coordinator && <div>Coordinator: {coordinator.name}</div>}
-              {m.notes && <div>{m.notes}</div>}
-            </div>
-          </div>
-        );
-      })}
-    </div>
+          );
+        })}
+      </div>
+      {modal && <MinistryModal churchId={church.id} engagement={modal.engagement} onClose={() => setModal(null)} />}
+    </>
   );
 }
 
 function GivingTab({ church }) {
+  const [modal, setModal] = useState(null); // { record? } when open
   const giving = getChurchGivingSummary(church.id);
   const status = GIVING_STATUS[giving.givingStatus];
   const byYear = {};
@@ -307,8 +327,9 @@ function GivingTab({ church }) {
   const records = [...giving.records].sort((a, b) => b.date.localeCompare(a.date));
   return (
     <>
-      <div style={{ marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
         <Badge label={status.label} variant={status.variant} />
+        <button className="btn primary" onClick={() => setModal({})}><IconPlus stroke={2} /> Record gift</button>
       </div>
       <div className="metric-grid">
         <MetricCard label="Lifetime giving" value={fmtMoney(giving.total)} />
@@ -324,7 +345,7 @@ function GivingTab({ church }) {
           ) : (
             <table className="data-table">
               <thead>
-                <tr><th>Date</th><th>Amount</th><th>Fund</th><th>Type</th></tr>
+                <tr><th>Date</th><th>Amount</th><th>Fund</th><th>Type</th><th /></tr>
               </thead>
               <tbody>
                 {records.map(r => {
@@ -335,6 +356,9 @@ function GivingTab({ church }) {
                       <td style={{ fontWeight: 500 }}>{fmtMoney(r.amount)}</td>
                       <td className="cell-muted">{r.fund}</td>
                       <td><Badge label={type.label} variant={type.variant} /></td>
+                      <td style={{ width: 40 }}>
+                        <button className="icon-btn" aria-label="Edit gift" onClick={() => setModal({ record: r })}><IconPencil stroke={1.75} /></button>
+                      </td>
                     </tr>
                   );
                 })}
@@ -355,51 +379,56 @@ function GivingTab({ church }) {
           </div>
         </div>
       </div>
+      {modal && <GivingRecordModal churchId={church.id} record={modal.record} onClose={() => setModal(null)} />}
     </>
   );
 }
 
 function NotesTab({ church }) {
   const { refresh } = useDb();
-  const [adding, setAdding] = useState(false);
-  const [body, setBody] = useState('');
-  const [pinned, setPinned] = useState(false);
-  const [internalOnly, setInternalOnly] = useState(false);
+  // form is null when closed; { note? , body, pinned, internalOnly } when open
+  const [form, setForm] = useState(null);
   const notes = getNotesByChurch(church.id);
 
+  const openAdd = () => setForm({ body: '', pinned: false, internalOnly: false });
+  const openEdit = note => setForm({ note, body: note.body, pinned: note.pinned, internalOnly: note.internalOnly });
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
   const save = () => {
-    if (!body.trim()) return;
-    addNote({ churchId: church.id, body: body.trim(), pinned, internalOnly });
-    setBody(''); setPinned(false); setInternalOnly(false); setAdding(false);
+    if (!form.body.trim()) return;
+    const values = { body: form.body.trim(), pinned: form.pinned, internalOnly: form.internalOnly };
+    if (form.note) updateNote(form.note.id, values);
+    else addNote({ churchId: church.id, ...values });
+    setForm(null);
     refresh();
   };
 
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button className="btn primary" onClick={() => setAdding(a => !a)}><IconPlus stroke={2} /> Add note</button>
+        <button className="btn primary" onClick={openAdd}><IconPlus stroke={2} /> Add note</button>
       </div>
-      {adding && (
+      {form && (
         <div className="card card-pad" style={{ marginBottom: 10 }}>
           <div className="field">
-            <label className="field-label">Note</label>
-            <textarea className="select" value={body} onChange={e => setBody(e.target.value)} placeholder="Write a note…" />
+            <label className="field-label">{form.note ? 'Edit note' : 'Note'}</label>
+            <textarea className="select" value={form.body} onChange={e => set('body', e.target.value)} placeholder="Write a note…" />
           </div>
           <div style={{ display: 'flex', gap: 16, alignItems: 'center', marginBottom: 12, fontSize: 13 }}>
             <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <input type="checkbox" className="checkbox" checked={pinned} onChange={e => setPinned(e.target.checked)} /> Pin note
+              <input type="checkbox" className="checkbox" checked={form.pinned} onChange={e => set('pinned', e.target.checked)} /> Pin note
             </label>
             <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-              <input type="checkbox" className="checkbox" checked={internalOnly} onChange={e => setInternalOnly(e.target.checked)} /> Internal only
+              <input type="checkbox" className="checkbox" checked={form.internalOnly} onChange={e => set('internalOnly', e.target.checked)} /> Internal only
             </label>
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-            <button className="btn" onClick={() => setAdding(false)}>Cancel</button>
+            <button className="btn" onClick={() => setForm(null)}>Cancel</button>
             <button className="btn primary" onClick={save}>Save note</button>
           </div>
         </div>
       )}
-      {notes.length === 0 && !adding && <div className="card"><EmptyState title="No notes yet" sub="Add the first note for this church." /></div>}
+      {notes.length === 0 && !form && <div className="card"><EmptyState title="No notes yet" sub="Add the first note for this church." /></div>}
       <div className="notes-stack">
         {notes.map(note => {
           const author = getUserById(note.authorId);
@@ -410,6 +439,9 @@ function NotesTab({ church }) {
                 {note.pinned && <><IconPinned stroke={1.75} /> Pinned</>}
                 {note.internalOnly && <Badge label="Internal only" variant="amber" />}
                 <span>{author?.name} · {fmtDate(note.createdAt)}</span>
+                <button className="btn sm" style={{ marginLeft: 'auto' }} onClick={() => openEdit(note)}>
+                  <IconPencil stroke={1.75} /> Edit
+                </button>
               </div>
             </div>
           );
@@ -421,38 +453,49 @@ function NotesTab({ church }) {
 
 function TasksTab({ church }) {
   const { refresh } = useDb();
+  const [modal, setModal] = useState(null); // { task? } when open
   const tasks = getTasksByChurch(church.id).sort((a, b) => a.dueDate.localeCompare(b.dueDate));
-  if (!tasks.length) {
-    return <div className="card"><EmptyState title="No tasks for this church" /></div>;
-  }
   return (
-    <div className="card" style={{ overflow: 'hidden' }}>
-      <table className="data-table">
-        <thead>
-          <tr><th /><th>Task</th><th>Assigned to</th><th>Due date</th><th>Priority</th><th>Status</th></tr>
-        </thead>
-        <tbody>
-          {tasks.map(task => {
-            const overdue = isTaskOverdue(task);
-            const priority = TASK_PRIORITY[task.priority];
-            const status = TASK_STATUS[overdue ? 'overdue' : task.status];
-            const done = task.status === 'completed';
-            return (
-              <tr key={task.id} className={overdue ? 'overdue-row' : ''}>
-                <td style={{ width: 36 }}>
-                  <input type="checkbox" className="checkbox" checked={done} onChange={() => { toggleTaskCompleted(task.id); refresh(); }} />
-                </td>
-                <td className={done ? 'text-strike' : ''} style={{ fontWeight: 500 }}>{task.title}</td>
-                <td className="cell-muted">{getUserById(task.assignedTo)?.name}</td>
-                <td className="cell-muted">{fmtDate(task.dueDate)}</td>
-                <td><Badge label={priority.label} variant={priority.variant} /></td>
-                <td><Badge label={status.label} variant={status.variant} /></td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
-    </div>
+    <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button className="btn primary" onClick={() => setModal({})}><IconPlus stroke={2} /> Add task</button>
+      </div>
+      {!tasks.length ? (
+        <div className="card"><EmptyState title="No tasks for this church" sub="Add the first task for this church." /></div>
+      ) : (
+        <div className="card" style={{ overflow: 'hidden' }}>
+          <table className="data-table">
+            <thead>
+              <tr><th /><th>Task</th><th>Assigned to</th><th>Due date</th><th>Priority</th><th>Status</th><th /></tr>
+            </thead>
+            <tbody>
+              {tasks.map(task => {
+                const overdue = isTaskOverdue(task);
+                const priority = TASK_PRIORITY[task.priority];
+                const status = TASK_STATUS[overdue ? 'overdue' : task.status];
+                const done = task.status === 'completed';
+                return (
+                  <tr key={task.id} className={overdue ? 'overdue-row' : ''}>
+                    <td style={{ width: 36 }}>
+                      <input type="checkbox" className="checkbox" checked={done} onChange={() => { toggleTaskCompleted(task.id); refresh(); }} />
+                    </td>
+                    <td className={done ? 'text-strike' : ''} style={{ fontWeight: 500 }}>{task.title}</td>
+                    <td className="cell-muted">{getUserById(task.assignedTo)?.name}</td>
+                    <td className="cell-muted">{fmtDate(task.dueDate)}</td>
+                    <td><Badge label={priority.label} variant={priority.variant} /></td>
+                    <td><Badge label={status.label} variant={status.variant} /></td>
+                    <td style={{ width: 40 }}>
+                      <button className="icon-btn" aria-label="Edit task" onClick={() => setModal({ task })}><IconPencil stroke={1.75} /></button>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {modal && <TaskModal churchId={church.id} task={modal.task} onClose={() => setModal(null)} />}
+    </>
   );
 }
 
@@ -461,6 +504,7 @@ export default function ChurchProfile() {
   const { id } = useParams();
   const [tab, setTab] = useState('Overview');
   const [logging, setLogging] = useState(false);
+  const [editing, setEditing] = useState(false);
   const church = getChurchById(id);
 
   if (!church) {
@@ -499,7 +543,7 @@ export default function ChurchProfile() {
           </div>
         </div>
         <div className="page-actions">
-          <button className="btn"><IconPencil stroke={1.75} /> Edit</button>
+          <button className="btn" onClick={() => setEditing(true)}><IconPencil stroke={1.75} /> Edit</button>
           <button className="btn primary" onClick={() => setLogging(true)}><IconPlus stroke={2} /> Log interaction</button>
         </div>
       </div>
@@ -519,6 +563,7 @@ export default function ChurchProfile() {
       {tab === 'Notes' && <NotesTab church={church} />}
       {tab === 'Tasks' && <TasksTab church={church} />}
       {logging && <LogInteractionModal churchId={church.id} onClose={() => setLogging(false)} />}
+      {editing && <ChurchModal church={church} onClose={() => setEditing(false)} />}
     </>
   );
 }

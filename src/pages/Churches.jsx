@@ -10,6 +10,7 @@ import { ENGAGEMENT_STATUS, fmtDate } from '../data/labels.js';
 import { Header } from '../components/layout.jsx';
 import { Badge, SearchBar, FilterPills, AvatarInitials, EmptyState } from '../components/shared.jsx';
 import { ExportModal, ImportModal } from '../components/ImportExportModals.jsx';
+import { ChurchModal } from '../components/EntityModals.jsx';
 import { useDb } from '../data/store.jsx';
 
 const STATUS_FILTERS = [
@@ -32,16 +33,29 @@ export default function Churches() {
   const [view, setView] = useState('table');
   const [exporting, setExporting] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [moreFilters, setMoreFilters] = useState(false);
+  const [denomination, setDenomination] = useState('all');
+  const [county, setCounty] = useState('all');
+  const [careCommunityOnly, setCareCommunityOnly] = useState(false);
+
+  const denominations = useMemo(
+    () => [...new Set(db.churches.map(c => c.denomination))].sort(), [version]);
+  const counties = useMemo(
+    () => [...new Set(db.churches.map(c => c.county))].sort(), [version]);
 
   const churches = useMemo(() => {
     const q = query.trim().toLowerCase();
     return db.churches.filter(c => {
       if (status !== 'all' && c.engagementStatus !== status) return false;
+      if (denomination !== 'all' && c.denomination !== denomination) return false;
+      if (county !== 'all' && c.county !== county) return false;
+      if (careCommunityOnly && !c.hasCareCommmunity) return false;
       if (!q) return true;
       const pastors = getContactsByChurch(c.id).map(p => p.name).join(' ');
       return [c.name, c.city, c.denomination, pastors].join(' ').toLowerCase().includes(q);
     });
-  }, [query, status, version]);
+  }, [query, status, denomination, county, careCommunityOnly, version]);
 
   return (
     <>
@@ -52,12 +66,13 @@ export default function Churches() {
           <>
             <button className="btn" onClick={() => setImporting(true)}><IconUpload stroke={1.75} /> Import</button>
             <button className="btn" onClick={() => setExporting(true)}><IconDownload stroke={1.75} /> Export</button>
-            <button className="btn primary"><IconPlus stroke={2} /> Add church</button>
+            <button className="btn primary" onClick={() => setAdding(true)}><IconPlus stroke={2} /> Add church</button>
           </>
         }
       />
       {exporting && <ExportModal onClose={() => setExporting(false)} />}
       {importing && <ImportModal onClose={() => setImporting(false)} />}
+      {adding && <ChurchModal onClose={() => setAdding(false)} />}
       <div className="toolbar">
         <div style={{ flex: 1, minWidth: 260 }}>
           <SearchBar placeholder="Search by name, city, pastor, or denomination…" value={query} onChange={setQuery} />
@@ -65,12 +80,46 @@ export default function Churches() {
       </div>
       <div className="toolbar">
         <FilterPills options={STATUS_FILTERS} active={status} onChange={setStatus} />
-        <button className="btn sm"><IconAdjustmentsHorizontal stroke={1.75} /> More filters</button>
+        <button
+          className={`btn sm ${moreFilters || denomination !== 'all' || county !== 'all' || careCommunityOnly ? 'primary' : ''}`}
+          onClick={() => setMoreFilters(f => !f)}
+        >
+          <IconAdjustmentsHorizontal stroke={1.75} /> More filters
+        </button>
         <span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
           <button className={`btn sm ${view === 'table' ? 'primary' : ''}`} onClick={() => setView('table')} aria-label="Table view"><IconList stroke={1.75} /></button>
           <button className={`btn sm ${view === 'cards' ? 'primary' : ''}`} onClick={() => setView('cards')} aria-label="Card view"><IconLayoutGrid stroke={1.75} /></button>
         </span>
       </div>
+      {moreFilters && (
+        <div className="card card-pad" style={{ marginBottom: 12, display: 'flex', gap: 16, alignItems: 'flex-end', flexWrap: 'wrap' }}>
+          <div className="field" style={{ marginBottom: 0, minWidth: 200 }}>
+            <label className="field-label">Denomination</label>
+            <select className="select" value={denomination} onChange={e => setDenomination(e.target.value)}>
+              <option value="all">All denominations</option>
+              {denominations.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+          <div className="field" style={{ marginBottom: 0, minWidth: 160 }}>
+            <label className="field-label">County</label>
+            <select className="select" value={county} onChange={e => setCounty(e.target.value)}>
+              <option value="all">All counties</option>
+              {counties.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+          </div>
+          <label style={{ display: 'flex', gap: 6, alignItems: 'center', fontSize: 13, paddingBottom: 8 }}>
+            <input type="checkbox" className="checkbox" checked={careCommunityOnly} onChange={e => setCareCommunityOnly(e.target.checked)} />
+            Has Care Community
+          </label>
+          <button
+            className="btn sm"
+            style={{ marginLeft: 'auto' }}
+            onClick={() => { setDenomination('all'); setCounty('all'); setCareCommunityOnly(false); }}
+          >
+            Clear
+          </button>
+        </div>
+      )}
 
       {churches.length === 0 && (
         <div className="card">

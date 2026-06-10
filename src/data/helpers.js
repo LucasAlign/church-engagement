@@ -191,6 +191,67 @@ let seq = 100;
 export function genId(prefix) {
   return `${prefix}_${++seq}`;
 }
+function findIn(collection, id) {
+  return db[collection].find(r => r.id === id);
+}
+export function addChurch(values) {
+  db.churches.push({
+    id: genId('ch'), notes: null, createdAt: TODAY, updatedAt: TODAY,
+    lastInteractionDate: values.firstContactDate || TODAY, ...values,
+  });
+}
+export function updateChurch(id, values) {
+  const church = findIn('churches', id);
+  if (church) Object.assign(church, values, { updatedAt: TODAY });
+}
+export function updateCareCommunity(id, values) {
+  const cc = findIn('careCommunities', id);
+  if (cc) Object.assign(cc, values);
+}
+export function updateAdvocate(id, values) {
+  const adv = findIn('advocates', id);
+  if (adv) Object.assign(adv, values);
+}
+export function updateConnection(id, values) {
+  const cx = findIn('connections', id);
+  if (cx) Object.assign(cx, values);
+}
+export function addMinistryEngagement(values) {
+  db.ministryEngagements.push({ id: genId('min'), coordinatorId: null, notes: null, ...values });
+}
+export function updateMinistryEngagement(id, values) {
+  const m = findIn('ministryEngagements', id);
+  if (m) Object.assign(m, values);
+}
+export function addGivingRecord(values) {
+  db.givingRecords.push({ id: genId('giv'), ...values });
+}
+export function updateGivingRecord(id, values) {
+  const g = findIn('givingRecords', id);
+  if (g) Object.assign(g, values);
+}
+export function addTask(values) {
+  db.tasks.push({ id: genId('tsk'), status: 'open', createdAt: TODAY, ...values });
+}
+export function updateTask(id, values) {
+  const task = findIn('tasks', id);
+  if (task) Object.assign(task, values);
+}
+export function updateNote(id, values) {
+  const note = db.churchNotes.find(n => n.id === id);
+  if (note) Object.assign(note, values);
+}
+export function addImpactReport(values) {
+  db.impactReports.unshift({ id: genId('rpt'), uploadedBy: 'usr_001', uploadedAt: TODAY, fileType: 'pdf', ...values });
+}
+export function replaceImpactReport(id, values) {
+  const rpt = findIn('impactReports', id);
+  if (rpt) Object.assign(rpt, values, { uploadedBy: 'usr_001', uploadedAt: TODAY });
+}
+export function updateUser(id, values) {
+  const user = findIn('users', id);
+  if (user) Object.assign(user, values);
+}
 export function addContact(values) {
   db.contacts.push({ id: genId('con'), archived: false, ...values });
 }

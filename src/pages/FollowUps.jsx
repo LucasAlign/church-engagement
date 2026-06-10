@@ -1,11 +1,12 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { IconPlus } from '@tabler/icons-react';
+import { IconPlus, IconPencil } from '@tabler/icons-react';
 import db from '../data/db.js';
 import { getChurchById, getUserById, isTaskOverdue, toggleTaskCompleted } from '../data/helpers.js';
 import { TASK_PRIORITY, TASK_STATUS, fmtDate } from '../data/labels.js';
 import { Header } from '../components/layout.jsx';
 import { Badge, FilterPills } from '../components/shared.jsx';
+import { TaskModal } from '../components/EntityModals.jsx';
 import { useDb } from '../data/store.jsx';
 
 const FILTERS = [
@@ -19,6 +20,7 @@ const FILTERS = [
 export default function FollowUps() {
   const { refresh } = useDb();
   const [filter, setFilter] = useState('all');
+  const [modal, setModal] = useState(null); // { task? } when open
 
   const tasks = [...db.tasks]
     .filter(t => {
@@ -33,15 +35,16 @@ export default function FollowUps() {
       <Header
         title="Follow-ups"
         subtitle={`${db.tasks.filter(t => t.status !== 'completed').length} open tasks across all churches`}
-        actions={<button className="btn primary"><IconPlus stroke={2} /> New task</button>}
+        actions={<button className="btn primary" onClick={() => setModal({})}><IconPlus stroke={2} /> New task</button>}
       />
+      {modal && <TaskModal task={modal.task} onClose={() => setModal(null)} />}
       <div className="toolbar">
         <FilterPills options={FILTERS} active={filter} onChange={setFilter} />
       </div>
       <div className="card" style={{ overflow: 'hidden' }}>
         <table className="data-table">
           <thead>
-            <tr><th /><th>Church</th><th>Task</th><th>Assigned to</th><th>Due date</th><th>Priority</th><th>Status</th></tr>
+            <tr><th /><th>Church</th><th>Task</th><th>Assigned to</th><th>Due date</th><th>Priority</th><th>Status</th><th /></tr>
           </thead>
           <tbody>
             {tasks.map(task => {
@@ -60,6 +63,9 @@ export default function FollowUps() {
                   <td className="cell-muted">{fmtDate(task.dueDate)}</td>
                   <td><Badge label={priority.label} variant={priority.variant} /></td>
                   <td><Badge label={status.label} variant={status.variant} /></td>
+                  <td style={{ width: 40 }}>
+                    <button className="icon-btn" aria-label="Edit task" onClick={() => setModal({ task })}><IconPencil stroke={1.75} /></button>
+                  </td>
                 </tr>
               );
             })}
