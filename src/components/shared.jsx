@@ -85,10 +85,10 @@ export function EmptyState({ icon: Icon, title, sub }) {
   );
 }
 
-export function Modal({ title, onClose, footer, children }) {
+export function Modal({ title, onClose, footer, children, wide }) {
   return (
     <div className="modal-overlay" onMouseDown={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
+      <div className={`modal ${wide ? 'wide' : ''}`}>
         <div className="modal-header">
           <div className="modal-title">{title}</div>
           <button className="icon-btn" onClick={onClose} aria-label="Close">

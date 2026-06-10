@@ -1,11 +1,16 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IconLayoutGrid, IconList, IconAdjustmentsHorizontal, IconPlus, IconBuildingChurch } from '@tabler/icons-react';
+import {
+  IconLayoutGrid, IconList, IconAdjustmentsHorizontal, IconPlus, IconBuildingChurch,
+  IconDownload, IconUpload,
+} from '@tabler/icons-react';
 import db from '../data/db.js';
 import { getContactsByChurch, getUserById } from '../data/helpers.js';
 import { ENGAGEMENT_STATUS, fmtDate } from '../data/labels.js';
 import { Header } from '../components/layout.jsx';
 import { Badge, SearchBar, FilterPills, AvatarInitials, EmptyState } from '../components/shared.jsx';
+import { ExportModal, ImportModal } from '../components/ImportExportModals.jsx';
+import { useDb } from '../data/store.jsx';
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'All statuses' },
@@ -20,10 +25,13 @@ function attendanceRange(c) {
 }
 
 export default function Churches() {
+  const { version } = useDb();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [view, setView] = useState('table');
+  const [exporting, setExporting] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const churches = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -33,15 +41,23 @@ export default function Churches() {
       const pastors = getContactsByChurch(c.id).map(p => p.name).join(' ');
       return [c.name, c.city, c.denomination, pastors].join(' ').toLowerCase().includes(q);
     });
-  }, [query, status]);
+  }, [query, status, version]);
 
   return (
     <>
       <Header
         title="Churches"
         subtitle={`${db.churches.length} churches in Berks County`}
-        actions={<button className="btn primary"><IconPlus stroke={2} /> Add church</button>}
+        actions={
+          <>
+            <button className="btn" onClick={() => setImporting(true)}><IconUpload stroke={1.75} /> Import</button>
+            <button className="btn" onClick={() => setExporting(true)}><IconDownload stroke={1.75} /> Export</button>
+            <button className="btn primary"><IconPlus stroke={2} /> Add church</button>
+          </>
+        }
       />
+      {exporting && <ExportModal onClose={() => setExporting(false)} />}
+      {importing && <ImportModal onClose={() => setImporting(false)} />}
       <div className="toolbar">
         <div style={{ flex: 1, minWidth: 260 }}>
           <SearchBar placeholder="Search by name, city, pastor, or denomination…" value={query} onChange={setQuery} />

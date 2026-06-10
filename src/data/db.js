@@ -270,6 +270,47 @@ const db = {
     { id: 'min_010', churchId: 'ch_004', ministry: 'care_community', status: 'active', startDate: '2022-06-01', coordinatorId: null, notes: null },
     { id: 'min_011', churchId: 'ch_004', ministry: 'stand_sunday', status: 'active', startDate: '2020-04-01', coordinatorId: null, notes: null },
   ],
+  careCommunities: [
+    {
+      id: 'cc_001', churchId: 'ch_001', name: 'Covenant Care Community', status: 'active',
+      lead: 'Tom Shenk', familyServed: 'The Ramirez family', startDate: '2023-01-15',
+      notes: 'Meets monthly; 14 families active.',
+      members: [
+        { name: 'Tom Shenk', role: 'Team Lead' },
+        { name: 'Karen Diaz', role: 'Meal Coordinator' },
+        { name: 'Bill Stoltzfus', role: 'Transportation' },
+        { name: 'Amy Lutz', role: 'Childcare' },
+      ],
+    },
+    {
+      id: 'cc_002', churchId: 'ch_001', name: 'East Wing Care Community', status: 'forming',
+      lead: 'Janet Wu', familyServed: null, startDate: null,
+      notes: 'Second community targeted for Q4 2026 launch.',
+      members: [{ name: 'Janet Wu', role: 'Team Lead' }],
+    },
+    {
+      id: 'cc_003', churchId: 'ch_004', name: 'Life Church Care Community', status: 'active',
+      lead: 'Maria Gonzalez', familyServed: 'The Tran family', startDate: '2022-06-01',
+      notes: null,
+      members: [
+        { name: 'Maria Gonzalez', role: 'Team Lead' },
+        { name: 'Derek Long', role: 'Errands & Repairs' },
+      ],
+    },
+  ],
+  advocates: [
+    { id: 'adv_001', churchId: 'ch_001', name: 'Rachel Kemp', email: 'rkemp@gmail.com', phone: '(610) 555-0731', role: 'Foster care advocate', status: 'active', trainedDate: '2024-02-10', notes: 'Hosts quarterly info table.' },
+    { id: 'adv_002', churchId: 'ch_001', name: 'Steve Brubaker', email: 'sbrubaker@outlook.com', phone: null, role: 'Stand Sunday advocate', status: 'active', trainedDate: '2025-03-22', notes: null },
+    { id: 'adv_003', churchId: 'ch_002', name: 'Donna Hess', email: 'dhess@gracekutztown.org', phone: '(610) 555-0299', role: 'Foster care advocate', status: 'inactive', trainedDate: '2023-09-14', notes: 'On sabbatical through 2026.' },
+    { id: 'adv_004', churchId: 'ch_004', name: 'Carlos Vega', email: 'cvega@lifechurchreading.com', phone: '(610) 555-0461', role: 'Volunteer advocate', status: 'active', trainedDate: '2024-11-05', notes: null },
+  ],
+  connections: [
+    { id: 'cx_001', churchId: 'ch_001', name: 'Beth & Daniel Ramirez', email: 'bdramirez@gmail.com', phone: '(610) 555-0811', connectionType: 'foster_parent', status: 'active', notes: 'Licensed 2023; supported by Covenant Care Community.' },
+    { id: 'cx_002', churchId: 'ch_001', name: 'Greg Houser', email: 'ghouser@gmail.com', phone: null, connectionType: 'volunteer', status: 'active', notes: 'CYS lunch volunteer.' },
+    { id: 'cx_003', churchId: 'ch_001', name: 'Marlene Otto', email: null, phone: '(610) 555-0844', connectionType: 'donor', status: 'active', notes: null },
+    { id: 'cx_004', churchId: 'ch_004', name: 'The Tran family', email: 'trans.reading@gmail.com', phone: null, connectionType: 'foster_parent', status: 'active', notes: 'Kinship placement, two children.' },
+    { id: 'cx_005', churchId: 'ch_002', name: 'Paul Dietrich', email: 'pdietrich@ptd.net', phone: '(610) 555-0307', connectionType: 'attendee', status: 'active', notes: 'Attended May info session.' },
+  ],
   impactReports: [
     { id: 'rpt_001', churchId: 'ch_001', year: 2025, fileName: 'covenant-church-2025-impact.pdf', fileType: 'pdf', fileSizeMb: 2.4, uploadedBy: 'usr_001', uploadedAt: '2026-06-03', url: '#' },
     { id: 'rpt_002', churchId: 'ch_002', year: 2025, fileName: 'grace-kutztown-2025-impact.pdf', fileType: 'pdf', fileSizeMb: 1.8, uploadedBy: 'usr_002', uploadedAt: '2026-06-08', url: '#' },

@@ -113,6 +113,15 @@ export function getUserById(id) {
 export function getContactById(id) {
   return db.contacts.find(c => c.id === id);
 }
+export function getCareCommunitiesByChurch(churchId) {
+  return db.careCommunities.filter(c => c.churchId === churchId);
+}
+export function getAdvocatesByChurch(churchId) {
+  return db.advocates.filter(a => a.churchId === churchId);
+}
+export function getConnectionsByChurch(churchId) {
+  return db.connections.filter(c => c.churchId === churchId);
+}
 
 // A task counts as overdue if flagged, or still open/in progress past its due date.
 export function isTaskOverdue(task) {
@@ -179,6 +188,29 @@ export function getMissingReports(year = 2025) {
 
 // --- prototype-only mutations; swap for Supabase inserts/updates later ---
 let seq = 100;
+export function genId(prefix) {
+  return `${prefix}_${++seq}`;
+}
+export function addContact(values) {
+  db.contacts.push({ id: genId('con'), archived: false, ...values });
+}
+export function updateContact(id, values) {
+  const contact = db.contacts.find(c => c.id === id);
+  if (contact) Object.assign(contact, values);
+}
+export function archiveContact(id) {
+  const contact = db.contacts.find(c => c.id === id);
+  if (contact) contact.archived = true;
+}
+export function addCareCommunity(values) {
+  db.careCommunities.push({ id: genId('cc'), members: [], ...values });
+}
+export function addAdvocate(values) {
+  db.advocates.push({ id: genId('adv'), ...values });
+}
+export function addConnection(values) {
+  db.connections.push({ id: genId('cx'), ...values });
+}
 export function addInteraction({ churchId, type, date, notes }) {
   db.interactions.unshift({
     id: `int_${++seq}`, churchId, contactId: null, type, date, userId: 'usr_001', notes, attendeeCount: null,

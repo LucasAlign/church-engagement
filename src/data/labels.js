@@ -87,6 +87,30 @@ export const KFA_ROLE = {
   none: { label: '—', variant: 'gray' },
 };
 
+export const CARE_COMMUNITY_STATUS = {
+  active: { label: 'Active', variant: 'green' },
+  forming: { label: 'Forming', variant: 'amber' },
+  inactive: { label: 'Inactive', variant: 'gray' },
+};
+
+export const ADVOCATE_STATUS = {
+  active: { label: 'Active', variant: 'green' },
+  inactive: { label: 'Inactive', variant: 'gray' },
+};
+
+export const CONNECTION_TYPE = {
+  attendee: { label: 'Attendee', variant: 'blue' },
+  volunteer: { label: 'Volunteer', variant: 'green' },
+  foster_parent: { label: 'Foster parent', variant: 'purple' },
+  donor: { label: 'Donor', variant: 'amber' },
+  other: { label: 'Other', variant: 'gray' },
+};
+
+export const CONNECTION_STATUS = {
+  active: { label: 'Active', variant: 'green' },
+  inactive: { label: 'Inactive', variant: 'gray' },
+};
+
 export const PREFERRED_CONTACT = {
   phone: 'Prefers phone',
   email: 'Prefers email',

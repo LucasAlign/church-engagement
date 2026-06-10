@@ -437,7 +437,7 @@ button { font-family: inherit; }
 .profile-header .ph-meta span { display: inline-flex; align-items: center; gap: 5px; }
 .profile-header .ph-meta svg { width: 14px; height: 14px; }
 
-.tab-nav { display: flex; gap: 2px; border-bottom: 0.5px solid var(--border); margin-bottom: 16px; }
+.tab-nav { display: flex; flex-wrap: wrap; gap: 2px; border-bottom: 0.5px solid var(--border); margin-bottom: 16px; }
 .tab-btn {
   padding: 9px 14px;
   font-size: 13px;
@@ -556,6 +556,7 @@ textarea.select { resize: vertical; min-height: 70px; }
   max-height: calc(100vh - 80px);
   overflow-y: auto;
 }
+.modal.wide { width: 720px; }
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 16px;

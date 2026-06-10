@@ -3,22 +3,31 @@ import { Link, useParams } from 'react-router-dom';
 import {
   IconMapPin, IconUsers, IconCalendar, IconUserCircle, IconMail, IconPhone,
   IconPlus, IconPencil, IconPinned, IconLock, IconArchive, IconBuildingChurch,
+  IconHeartHandshake, IconSpeakerphone, IconUsersGroup,
 } from '@tabler/icons-react';
 import {
   getChurchById, getContactsByChurch, getInteractionsByChurch, getTasksByChurch,
   getNotesByChurch, getMinistryByChurch, getChurchGivingSummary, getUserById,
-  getContactById, isTaskOverdue, addNote, toggleTaskCompleted,
+  getContactById, getCareCommunitiesByChurch, getAdvocatesByChurch,
+  getConnectionsByChurch, isTaskOverdue, addNote, toggleTaskCompleted, archiveContact,
 } from '../data/helpers.js';
 import {
   ENGAGEMENT_STATUS, GIVING_STATUS, GIVING_TYPE, INTERACTION_TYPE, MINISTRY_TYPE,
   MINISTRY_STATUS, TASK_PRIORITY, TASK_STATUS, KFA_ROLE, PREFERRED_CONTACT,
+  CARE_COMMUNITY_STATUS, ADVOCATE_STATUS, CONNECTION_TYPE, CONNECTION_STATUS,
   fmtDate, fmtMoney,
 } from '../data/labels.js';
 import { Badge, MetricCard, AvatarInitials, EmptyState } from '../components/shared.jsx';
 import LogInteractionModal from '../components/LogInteractionModal.jsx';
+import {
+  StaffModal, CareCommunityModal, AdvocateModal, ConnectionModal,
+} from '../components/EntityModals.jsx';
 import { useDb } from '../data/store.jsx';
 
-const TABS = ['Overview', 'People', 'Timeline', 'Ministry', 'Giving', 'Notes', 'Tasks'];
+const TABS = [
+  'Overview', 'Staff', 'Care Communities', 'Advocates', 'Connections',
+  'Timeline', 'Ministry', 'Giving', 'Notes', 'Tasks',
+];
 
 function OverviewTab({ church }) {
   const giving = getChurchGivingSummary(church.id);
@@ -58,20 +67,20 @@ function OverviewTab({ church }) {
   );
 }
 
-function PeopleTab({ church }) {
+function StaffTab({ church }) {
+  const { refresh } = useDb();
+  const [modal, setModal] = useState(null); // { contact? } when open
   const contacts = getContactsByChurch(church.id);
-  if (!contacts.length) {
-    return (
-      <div className="card">
-        <EmptyState icon={IconUserCircle} title="No leadership contacts yet" sub="Add the first contact for this church." />
-      </div>
-    );
-  }
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button className="btn"><IconPlus stroke={2} /> Add contact</button>
+        <button className="btn primary" onClick={() => setModal({})}><IconPlus stroke={2} /> Add staff member</button>
       </div>
+      {!contacts.length && (
+        <div className="card">
+          <EmptyState icon={IconUserCircle} title="No staff yet" sub="Add the first staff member for this church." />
+        </div>
+      )}
       <div className="people-grid">
         {contacts.map(p => {
           const role = KFA_ROLE[p.kfaRole] || KFA_ROLE.none;
@@ -91,13 +100,139 @@ function PeopleTab({ church }) {
                 <span className="text-secondary">{PREFERRED_CONTACT[p.preferredContact]}{p.notes ? ` · ${p.notes}` : ''}</span>
               </div>
               <div className="pc-actions">
-                <button className="btn sm"><IconPencil stroke={1.75} /> Edit</button>
-                <button className="btn sm"><IconArchive stroke={1.75} /> Archive</button>
+                <button className="btn sm" onClick={() => setModal({ contact: p })}><IconPencil stroke={1.75} /> Edit</button>
+                <button className="btn sm" onClick={() => { archiveContact(p.id); refresh(); }}><IconArchive stroke={1.75} /> Archive</button>
               </div>
             </div>
           );
         })}
       </div>
+      {modal && <StaffModal churchId={church.id} contact={modal.contact} onClose={() => setModal(null)} />}
+    </>
+  );
+}
+
+function CareCommunitiesTab({ church }) {
+  const [adding, setAdding] = useState(false);
+  const communities = getCareCommunitiesByChurch(church.id);
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button className="btn primary" onClick={() => setAdding(true)}><IconPlus stroke={2} /> Add care community</button>
+      </div>
+      {!communities.length && (
+        <div className="card">
+          <EmptyState icon={IconHeartHandshake} title="No care communities yet" sub="Add the first care community for this church." />
+        </div>
+      )}
+      <div className="ministry-grid">
+        {communities.map(cc => {
+          const status = CARE_COMMUNITY_STATUS[cc.status];
+          return (
+            <div className={`card ministry-card ${cc.status === 'active' ? 'active-ministry' : ''}`} key={cc.id}>
+              <div className="mc-head">
+                <span className="mc-name">{cc.name}</span>
+                <Badge label={status.label} variant={status.variant} />
+              </div>
+              <div className="mc-meta">
+                {cc.lead && <div>Lead: {cc.lead}</div>}
+                {cc.familyServed && <div>Serving: {cc.familyServed}</div>}
+                {cc.startDate && <div>Since {fmtDate(cc.startDate)}</div>}
+                {cc.members.length > 0 && (
+                  <div>Team: {cc.members.map(m => (m.role ? `${m.name} (${m.role})` : m.name)).join(', ')}</div>
+                )}
+                {cc.notes && <div>{cc.notes}</div>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {adding && <CareCommunityModal churchId={church.id} onClose={() => setAdding(false)} />}
+    </>
+  );
+}
+
+function AdvocatesTab({ church }) {
+  const [adding, setAdding] = useState(false);
+  const advocates = getAdvocatesByChurch(church.id);
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button className="btn primary" onClick={() => setAdding(true)}><IconPlus stroke={2} /> Add advocate</button>
+      </div>
+      {!advocates.length && (
+        <div className="card">
+          <EmptyState icon={IconSpeakerphone} title="No advocates yet" sub="Add the first advocate for this church." />
+        </div>
+      )}
+      <div className="people-grid">
+        {advocates.map(a => {
+          const status = ADVOCATE_STATUS[a.status];
+          return (
+            <div className="card person-card" key={a.id}>
+              <div className="pc-head">
+                <AvatarInitials name={a.name} size="md" />
+                <div style={{ flex: 1 }}>
+                  <div className="pc-name">{a.name}</div>
+                  <div className="pc-role">{a.role || 'Advocate'}</div>
+                </div>
+                <Badge label={status.label} variant={status.variant} />
+              </div>
+              <div className="pc-contact">
+                {a.email && <span><IconMail stroke={1.75} /> {a.email}</span>}
+                {a.phone && <span><IconPhone stroke={1.75} /> {a.phone}</span>}
+                <span className="text-secondary">
+                  {a.trainedDate ? `Trained ${fmtDate(a.trainedDate)}` : 'Not yet trained'}
+                  {a.notes ? ` · ${a.notes}` : ''}
+                </span>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      {adding && <AdvocateModal churchId={church.id} onClose={() => setAdding(false)} />}
+    </>
+  );
+}
+
+function ConnectionsTab({ church }) {
+  const [adding, setAdding] = useState(false);
+  const connections = getConnectionsByChurch(church.id);
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button className="btn primary" onClick={() => setAdding(true)}><IconPlus stroke={2} /> Add connection</button>
+      </div>
+      {!connections.length ? (
+        <div className="card">
+          <EmptyState icon={IconUsersGroup} title="No connections yet" sub="Add people from this congregation connected to KFA." />
+        </div>
+      ) : (
+        <div className="card" style={{ overflow: 'hidden' }}>
+          <table className="data-table">
+            <thead>
+              <tr><th>Name</th><th>Connection</th><th>Email</th><th>Phone</th><th>Status</th><th>Notes</th></tr>
+            </thead>
+            <tbody>
+              {connections.map(cx => {
+                const type = CONNECTION_TYPE[cx.connectionType] || CONNECTION_TYPE.other;
+                const status = CONNECTION_STATUS[cx.status];
+                return (
+                  <tr key={cx.id}>
+                    <td style={{ fontWeight: 500 }}>{cx.name}</td>
+                    <td><Badge label={type.label} variant={type.variant} /></td>
+                    <td className="cell-muted">{cx.email || '—'}</td>
+                    <td className="cell-muted">{cx.phone || '—'}</td>
+                    <td><Badge label={status.label} variant={status.variant} /></td>
+                    <td className="cell-muted">{cx.notes || ''}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+      {adding && <ConnectionModal churchId={church.id} onClose={() => setAdding(false)} />}
     </>
   );
 }
@@ -374,7 +509,10 @@ export default function ChurchProfile() {
         ))}
       </div>
       {tab === 'Overview' && <OverviewTab church={church} />}
-      {tab === 'People' && <PeopleTab church={church} />}
+      {tab === 'Staff' && <StaffTab church={church} />}
+      {tab === 'Care Communities' && <CareCommunitiesTab church={church} />}
+      {tab === 'Advocates' && <AdvocatesTab church={church} />}
+      {tab === 'Connections' && <ConnectionsTab church={church} />}
       {tab === 'Timeline' && <TimelineTab church={church} onLog={() => setLogging(true)} />}
       {tab === 'Ministry' && <MinistryTab church={church} />}
       {tab === 'Giving' && <GivingTab church={church} />}
