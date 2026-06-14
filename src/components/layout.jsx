@@ -1,62 +1,65 @@
-// AppShell, Sidebar, Header — matches Wraparound Admin layout.
 import { NavLink } from 'react-router-dom';
 import {
-  IconLayoutDashboard,
-  IconBuildingChurch,
-  IconMessages,
-  IconCheckbox,
-  IconHeartHandshake,
-  IconFileDescription,
-  IconChartBar,
-  IconSettings,
+  IconBug,
+  IconBell,
+  IconLogout,
+  IconHeart,
 } from '@tabler/icons-react';
-import { getOverdueTaskCount, getUserById } from '../data/helpers.js';
-import { useDb } from '../data/store.jsx';
+import { getUserById } from '../data/helpers.js';
 import { AvatarInitials } from './shared.jsx';
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Dashboard', icon: IconLayoutDashboard, end: true },
-  { to: '/churches', label: 'Churches', icon: IconBuildingChurch },
-  { to: '/interactions', label: 'Interactions', icon: IconMessages },
-  { to: '/follow-ups', label: 'Follow-ups', icon: IconCheckbox, badge: getOverdueTaskCount },
-  { to: '/giving', label: 'Giving', icon: IconHeartHandshake },
-  { to: '/reports', label: 'Impact reports', icon: IconFileDescription },
-  { to: '/analytics', label: 'Analytics', icon: IconChartBar },
-  { to: '/settings', label: 'Settings', icon: IconSettings },
+  { to: '/', label: 'Overview', end: true },
+  { to: '/churches', label: 'Churches' },
+  { to: '/interactions', label: 'Interactions' },
+  { to: '/follow-ups', label: 'Follow-ups' },
+  { to: '/giving', label: 'Giving' },
+  { to: '/reports', label: 'Reports & Impact' },
+  { to: '/analytics', label: 'Analytics' },
+  { to: '/settings', label: 'Settings' },
 ];
 
-function Sidebar() {
-  useDb(); // re-render badge counts after mutations
+function TopNav() {
   const me = getUserById('usr_001');
   return (
-    <aside className="sidebar">
-      <div className="sidebar-brand">
-        <div className="brand-mark">KF</div>
-        <div>
-          <div className="brand-name">KeyFam1</div>
-          <div className="brand-sub">Church engagement</div>
+    <header className="top-nav">
+      <div className="top-nav-left">
+        <div className="top-nav-brand">
+          <div className="brand-logo">
+            <IconHeart stroke={2} />
+          </div>
+          <span className="brand-wordmark">WRAPAROUND</span>
         </div>
-      </div>
-      <nav className="nav-list">
-        {NAV_ITEMS.map(({ to, label, icon: Icon, badge, end }) => {
-          const count = badge ? badge() : 0;
-          return (
-            <NavLink key={to} to={to} end={end} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-              <Icon stroke={1.75} />
+        <div className="top-nav-sep" />
+        <span className="top-nav-role">KFA Coordinator</span>
+        <nav className="top-nav-items">
+          {NAV_ITEMS.map(({ to, label, end }) => (
+            <NavLink
+              key={to}
+              to={to}
+              end={end}
+              className={({ isActive }) => `top-nav-item${isActive ? ' active' : ''}`}
+            >
               {label}
-              {count > 0 && <span className="nav-badge">{count}</span>}
             </NavLink>
-          );
-        })}
-      </nav>
-      <div className="user-pill">
-        <AvatarInitials name={me.name} initials={me.initials} size="md" />
-        <div>
-          <div className="user-name">{me.name}</div>
-          <div className="user-role">{me.role} · {me.county}</div>
-        </div>
+          ))}
+        </nav>
       </div>
-    </aside>
+      <div className="top-nav-right">
+        <button className="top-nav-btn">
+          <IconBug stroke={1.75} />
+          Report a Bug
+        </button>
+        <button className="icon-btn">
+          <IconBell stroke={1.75} />
+        </button>
+        <AvatarInitials name={me.name} initials={me.initials} size="sm" />
+        <button className="top-nav-btn">
+          <IconLogout stroke={1.75} />
+          Sign out
+        </button>
+      </div>
+    </header>
   );
 }
 
@@ -75,7 +78,7 @@ export function Header({ title, subtitle, actions }) {
 export function AppShell({ children }) {
   return (
     <div className="app-shell">
-      <Sidebar />
+      <TopNav />
       <main className="main">
         <div className="page">{children}</div>
       </main>
