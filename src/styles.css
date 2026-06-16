@@ -1,4 +1,4 @@
-/* KeyFam1 design system — matches Wraparound Admin module */
+/* Flock — church engagement tracker for Keystone Family Alliance */
 
 :root {
   /* palette */
@@ -92,9 +92,9 @@ button { font-family: inherit; }
 }
 .brand-logo svg { width: 15px; height: 15px; }
 .brand-wordmark {
-  font-size: 13.5px;
+  font-size: 15px;
   font-weight: 700;
-  letter-spacing: 0.4px;
+  letter-spacing: -0.2px;
   color: var(--text);
 }
 

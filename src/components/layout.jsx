@@ -3,10 +3,22 @@ import {
   IconBug,
   IconBell,
   IconLogout,
-  IconHeart,
 } from '@tabler/icons-react';
 import { getUserById } from '../data/helpers.js';
 import { AvatarInitials } from './shared.jsx';
+
+function FlockLogo() {
+  return (
+    <svg width="18" height="16" viewBox="0 0 18 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+      {/* large bird left */}
+      <path d="M1 7 C2 5.5 3.5 5.5 4.5 7 C5.5 5 7.5 4.5 8 6" stroke="white" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+      {/* medium bird center */}
+      <path d="M6 4 C7 2.8 8.2 2.8 9 4 C9.8 2.5 11.2 2.2 11.5 3.5" stroke="white" strokeWidth="1.4" strokeLinecap="round" fill="none"/>
+      {/* small bird right */}
+      <path d="M11 6.5 C11.8 5.5 12.8 5.5 13.5 6.5 C14 5.2 15.2 5 15.5 6" stroke="white" strokeWidth="1.3" strokeLinecap="round" fill="none"/>
+    </svg>
+  );
+}
 
 const NAV_ITEMS = [
   { to: '/', label: 'Overview', end: true },
@@ -26,9 +38,9 @@ function TopNav() {
       <div className="top-nav-left">
         <div className="top-nav-brand">
           <div className="brand-logo">
-            <IconHeart stroke={2} />
+            <FlockLogo />
           </div>
-          <span className="brand-wordmark">WRAPAROUND</span>
+          <span className="brand-wordmark">Flock</span>
         </div>
         <div className="top-nav-sep" />
         <span className="top-nav-role">KFA Coordinator</span>
