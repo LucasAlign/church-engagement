@@ -8,14 +8,15 @@ import {
   getChurchById, getContactsByChurch, getInteractionsByChurch, getTasksByChurch,
   getNotesByChurch, getMinistryByChurch, getChurchGivingSummary, getUserById,
   getContactById, isTaskOverdue, addNote, toggleTaskCompleted,
-  getCongregantsByChurch, addCongregant,
+  getCongregantsByChurch, addCongregant, updateCongregantContact,
+  getLastContactForContact, contactStatus,
 } from '../data/helpers.js';
 import {
   ENGAGEMENT_STATUS, GIVING_STATUS, GIVING_TYPE, INTERACTION_TYPE, MINISTRY_TYPE,
   MINISTRY_STATUS, TASK_PRIORITY, TASK_STATUS, KFA_ROLE, PREFERRED_CONTACT,
   CONGREGANT_CATEGORY, fmtDate, fmtMoney,
 } from '../data/labels.js';
-import { Badge, MetricCard, AvatarInitials, EmptyState } from '../components/shared.jsx';
+import { Badge, MetricCard, AvatarInitials, EmptyState, ContactDot } from '../components/shared.jsx';
 import LogInteractionModal from '../components/LogInteractionModal.jsx';
 import { useDb } from '../data/store.jsx';
 
@@ -76,12 +77,17 @@ function StaffTab({ church }) {
       <div className="people-grid">
         {contacts.map(p => {
           const role = KFA_ROLE[p.kfaRole] || KFA_ROLE.none;
+          const lastDate = getLastContactForContact(p.id);
+          const status = contactStatus(lastDate);
           return (
             <div className="card person-card" key={p.id}>
               <div className="pc-head">
                 <AvatarInitials name={p.name} size="md" />
                 <div style={{ flex: 1 }}>
-                  <div className="pc-name">{p.name}</div>
+                  <div className="pc-name" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <ContactDot status={status} date={lastDate} />
+                    {p.name}
+                  </div>
                   <div className="pc-role">{p.position}</div>
                 </div>
                 <Badge label={role.label} variant={role.variant} />
@@ -175,12 +181,16 @@ function NotableCongregrantsTab({ church }) {
       <div className="people-grid">
         {congregants.map(c => {
           const cat = CONGREGANT_CATEGORY[c.category] || CONGREGANT_CATEGORY.other;
+          const status = contactStatus(c.lastContactDate);
           return (
             <div className="card person-card" key={c.id}>
               <div className="pc-head">
                 <AvatarInitials name={c.name} size="md" />
                 <div style={{ flex: 1 }}>
-                  <div className="pc-name">{c.name}</div>
+                  <div className="pc-name" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <ContactDot status={status} date={c.lastContactDate} />
+                    {c.name}
+                  </div>
                   <div className="pc-role">{c.title || '—'}</div>
                 </div>
                 <Badge label={cat.label} variant={cat.variant} />
@@ -189,8 +199,14 @@ function NotableCongregrantsTab({ church }) {
                 {c.email && <span><IconMail stroke={1.75} /> {c.email}</span>}
                 {c.phone && <span><IconPhone stroke={1.75} /> {c.phone}</span>}
                 {c.notes && <span className="text-secondary">{c.notes}</span>}
+                <span className="text-secondary" style={{ fontSize: 12 }}>
+                  {c.lastContactDate ? `Last contact: ${fmtDate(c.lastContactDate)}` : 'No contact logged'}
+                </span>
               </div>
               <div className="pc-actions">
+                <button className="btn sm" onClick={() => { updateCongregantContact(c.id); refresh(); }}>
+                  ✓ Log contact
+                </button>
                 <button className="btn sm"><IconPencil stroke={1.75} /> Edit</button>
               </div>
             </div>

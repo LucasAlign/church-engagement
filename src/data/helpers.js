@@ -88,6 +88,21 @@ export function getRecentActivity(limit = 10) {
     }));
 }
 
+// Contact freshness — green < 90 days, red >= 90 days or never
+export function contactStatus(dateStr) {
+  if (!dateStr) return 'red';
+  const days = (new Date() - new Date(dateStr)) / 864e5;
+  return days <= 90 ? 'green' : 'red';
+}
+
+// Last interaction date for a specific contact person
+export function getLastContactForContact(contactId) {
+  const hits = db.interactions
+    .filter(i => i.contactId === contactId)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return hits[0]?.date || null;
+}
+
 // Lookup helpers
 export function getChurchById(id) {
   return db.churches.find(c => c.id === id);
@@ -116,11 +131,16 @@ export function getContactById(id) {
 export function getCongregantsByChurch(churchId) {
   return db.notableCongregants.filter(c => c.churchId === churchId);
 }
-export function addCongregant({ churchId, name, title, category, email, phone, notes }) {
+export function addCongregant({ churchId, name, title, category, email, phone, notes, lastContactDate }) {
   db.notableCongregants.push({
     id: `cng_${++seq}`, churchId, name, title, category, email: email || null,
-    phone: phone || null, notes: notes || null, createdAt: TODAY,
+    phone: phone || null, notes: notes || null,
+    lastContactDate: lastContactDate || null, createdAt: TODAY,
   });
+}
+export function updateCongregantContact(id) {
+  const c = db.notableCongregants.find(x => x.id === id);
+  if (c) c.lastContactDate = new Date().toISOString().slice(0, 10);
 }
 
 // A task counts as overdue if flagged, or still open/in progress past its due date.

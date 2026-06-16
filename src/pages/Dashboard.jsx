@@ -5,8 +5,10 @@ import {
   IconCheckbox, IconPray,
 } from '@tabler/icons-react';
 import db from '../data/db.js';
+import { contactStatus } from '../data/helpers.js';
 import { fmtDate } from '../data/labels.js';
 import { useDb } from '../data/store.jsx';
+import { ContactDot } from '../components/shared.jsx';
 
 function getDirectoryCounts() {
   const advocates = db.contacts.filter(c => c.kfaRole === 'advocate' || c.kfaRole === 'champion');
@@ -188,9 +190,12 @@ function DatabaseWidget() {
                 <span className="db-type-link">{r.typeLabel}</span>
               </td>
               <td>
-                {r.lastContact
-                  ? <span className="db-last-badge">{fmtDate(r.lastContact)}</span>
-                  : <span className="cell-muted">—</span>}
+                <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <ContactDot status={contactStatus(r.lastContact)} date={r.lastContact ? fmtDate(r.lastContact) : null} />
+                  {r.lastContact
+                    ? <span className="db-last-badge">{fmtDate(r.lastContact)}</span>
+                    : <span className="cell-muted">Never</span>}
+                </span>
               </td>
               <td>
                 <IconChevronRight stroke={1.5} style={{ width: 14, height: 14, color: 'var(--text-tertiary)', display: 'block' }} />

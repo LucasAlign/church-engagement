@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { IconLayoutGrid, IconList, IconAdjustmentsHorizontal, IconPlus, IconBuildingChurch } from '@tabler/icons-react';
 import db from '../data/db.js';
-import { getContactsByChurch, getUserById } from '../data/helpers.js';
+import { getContactsByChurch, getUserById, contactStatus } from '../data/helpers.js';
 import { ENGAGEMENT_STATUS, fmtDate } from '../data/labels.js';
 import { Header } from '../components/layout.jsx';
-import { Badge, SearchBar, FilterPills, AvatarInitials, EmptyState } from '../components/shared.jsx';
+import { Badge, SearchBar, FilterPills, AvatarInitials, EmptyState, ContactDot } from '../components/shared.jsx';
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'All statuses' },
@@ -91,7 +91,12 @@ export default function Churches() {
                     <td className="cell-muted">{c.denomination}</td>
                     <td className="cell-muted">{attendanceRange(c)}</td>
                     <td><Badge label={st.label} variant={st.variant} /></td>
-                    <td className="cell-muted">{fmtDate(c.lastInteractionDate)}</td>
+                    <td>
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                        <ContactDot status={contactStatus(c.lastInteractionDate)} date={fmtDate(c.lastInteractionDate)} />
+                        <span className="cell-muted">{fmtDate(c.lastInteractionDate)}</span>
+                      </span>
+                    </td>
                     <td className="cell-muted">{coordinator ? coordinator.name : '—'}</td>
                     <td><button className="btn sm" onClick={e => { e.stopPropagation(); navigate(`/churches/${c.id}`); }}>View</button></td>
                   </tr>
@@ -118,7 +123,10 @@ export default function Churches() {
                 </div>
                 <Badge label={st.label} variant={st.variant} />
                 <div className="cc-foot">
-                  <span>Last contact {fmtDate(c.lastInteractionDate)}</span>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <ContactDot status={contactStatus(c.lastInteractionDate)} date={fmtDate(c.lastInteractionDate)} />
+                    Last contact {fmtDate(c.lastInteractionDate)}
+                  </span>
                   {coordinator
                     ? <AvatarInitials name={coordinator.name} initials={coordinator.initials} size="sm" />
                     : <span>Unassigned</span>}
