@@ -1,23 +1,22 @@
 import { useState } from 'react';
 import {
   IconSearch, IconMapPin, IconChevronRight, IconRefresh,
-  IconUsers, IconBuildingChurch, IconHeartHandshake, IconUser,
-  IconCheckbox, IconPray,
+  IconUsers, IconBuildingChurch, IconHeartHandshake,
+  IconCheckbox, IconAlertCircle, IconPray,
 } from '@tabler/icons-react';
 import db from '../data/db.js';
-import { contactStatus } from '../data/helpers.js';
+import { contactStatus, isTaskOverdue } from '../data/helpers.js';
 import { fmtDate } from '../data/labels.js';
 import { useDb } from '../data/store.jsx';
 import { ContactDot } from '../components/shared.jsx';
 
 function getDirectoryCounts() {
-  const advocates = db.contacts.filter(c => c.kfaRole === 'advocate' || c.kfaRole === 'champion');
-  const volunteers = db.contacts.filter(c => c.kfaRole === 'primary_contact' || c.kfaRole === 'admin');
   return {
-    volunteers: volunteers.length,
-    advocates: advocates.length,
-    families: 0,
-    partnerChurches: db.churches.length,
+    partnerChurches: db.churches.filter(c =>
+      ['active_partner', 'strategic_partner'].includes(c.engagementStatus)).length,
+    activeMinistries: db.ministryEngagements.filter(m => m.status === 'active').length,
+    openTasks: db.tasks.filter(t => t.status !== 'completed').length,
+    overdueTasks: db.tasks.filter(isTaskOverdue).length,
   };
 }
 
@@ -59,10 +58,10 @@ function DirectoryWidget() {
   const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
   const rows = [
-    { icon: IconUsers, label: 'Volunteers', count: counts.volunteers, color: 'blue' },
-    { icon: IconUser, label: 'Church Advocates', count: counts.advocates, color: 'purple' },
-    { icon: IconHeartHandshake, label: 'Families', count: counts.families, color: 'green' },
-    { icon: IconBuildingChurch, label: 'Partner Churches', count: counts.partnerChurches, color: 'amber' },
+    { icon: IconBuildingChurch, label: 'Partner Churches',    count: counts.partnerChurches, color: 'green' },
+    { icon: IconHeartHandshake, label: 'Active Ministries',   count: counts.activeMinistries, color: 'blue' },
+    { icon: IconCheckbox,       label: 'Open Tasks',          count: counts.openTasks,       color: 'amber' },
+    { icon: IconAlertCircle,    label: 'Overdue Follow-ups',  count: counts.overdueTasks,    color: 'red' },
   ];
 
   return (
@@ -81,7 +80,7 @@ function DirectoryWidget() {
               className="dir-icon"
               style={{
                 background: `var(--${color}-bg)`,
-                color: color === 'amber' ? 'var(--amber-600)' : color === 'purple' ? 'var(--purple-600)' : `var(--${color}-400)`,
+                color: color === 'amber' ? 'var(--amber-600)' : color === 'purple' ? 'var(--purple-600)' : color === 'red' ? 'var(--red-400)' : `var(--${color}-400)`,
               }}
             >
               <Icon stroke={1.75} />
@@ -90,7 +89,7 @@ function DirectoryWidget() {
             <span
               className="dir-count"
               style={{
-                color: color === 'amber' ? 'var(--amber-600)' : color === 'purple' ? 'var(--purple-600)' : `var(--${color}-400)`,
+                color: color === 'amber' ? 'var(--amber-600)' : color === 'purple' ? 'var(--purple-600)' : color === 'red' ? 'var(--red-400)' : `var(--${color}-400)`,
               }}
             >
               {count}
