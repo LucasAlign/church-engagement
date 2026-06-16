@@ -593,3 +593,52 @@ textarea.select { resize: vertical; min-height: 70px; }
 
 .due-badge { font-size: 11.5px; font-weight: 500; padding: 2px 8px; border-radius: 999px; background: var(--gray-bg); color: var(--text-secondary); white-space: nowrap; }
 .due-badge.overdue { background: var(--red-bg); color: var(--red-400); }
+
+/* ---------- csv import ---------- */
+
+.import-dropzone {
+  cursor: pointer;
+  padding: 48px 28px;
+  transition: border-color 0.15s, background 0.15s;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.import-dropzone svg { width: 32px; height: 32px; color: var(--text-tertiary); }
+.import-dropzone:hover { border-color: var(--blue-400); background: var(--blue-bg); }
+.import-dropzone:hover svg { color: var(--blue-400); }
+.import-dropzone.drag-over {
+  border-color: var(--blue-400);
+  background: var(--blue-bg);
+}
+.import-dropzone.drag-over svg { color: var(--blue-400); }
+
+.import-parse-error {
+  margin-top: 12px;
+  color: var(--red-400);
+  background: var(--red-bg);
+  border-radius: var(--radius-md);
+  padding: 8px 14px;
+  font-size: 13px;
+}
+
+.import-success {
+  text-align: center;
+  padding: 64px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+.import-success-icon {
+  width: 64px; height: 64px;
+  border-radius: 50%;
+  background: var(--green-bg);
+  color: var(--green-400);
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 4px;
+}
+.import-success-icon svg { width: 34px; height: 34px; }
+.import-success-count { font-size: 22px; font-weight: 500; }
+.import-success-sub { font-size: 13.5px; color: var(--text-secondary); }
+.import-success-actions { display: flex; gap: 10px; margin-top: 8px; }

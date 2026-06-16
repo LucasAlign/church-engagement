@@ -179,6 +179,7 @@ export function getMissingReports(year = 2025) {
 
 // --- prototype-only mutations; swap for Supabase inserts/updates later ---
 let seq = 100;
+let importSeq = 10000;
 export function addInteraction({ churchId, type, date, notes }) {
   db.interactions.unshift({
     id: `int_${++seq}`, churchId, contactId: null, type, date, userId: 'usr_001', notes, attendeeCount: null,
@@ -195,4 +196,73 @@ export function toggleTaskCompleted(taskId) {
   const task = db.tasks.find(t => t.id === taskId);
   if (!task) return;
   task.status = task.status === 'completed' ? 'open' : 'completed';
+}
+
+const VALID_IMPORT_STATUSES = new Set([
+  'not_contacted', 'initial_contact', 'interested',
+  'active_partner', 'strategic_partner', 'dormant',
+]);
+
+export function importChurches(rows) {
+  let imported = 0;
+  for (const row of rows) {
+    if (!row.name) continue;
+    const churchId = `ch_imp_${++importSeq}`;
+    const status = VALID_IMPORT_STATUSES.has(row.engagement_status)
+      ? row.engagement_status
+      : 'not_contacted';
+    db.churches.push({
+      id: churchId,
+      name: row.name,
+      address: row.address || '',
+      city: row.city || '',
+      state: row.state || 'PA',
+      zip: row.zip || '',
+      phone: row.phone || '',
+      email: row.email || '',
+      website: row.website || '',
+      denomination: row.denomination || '',
+      attendanceMin: parseInt(row.attendance_min) || 0,
+      attendanceMax: parseInt(row.attendance_max) || 0,
+      engagementStatus: status,
+      lastInteractionDate: TODAY,
+      firstContactDate: TODAY,
+      assignedCoordinatorId: null,
+      notes: row.notes || '',
+    });
+    imported++;
+
+    if (row.lead_pastor?.trim()) {
+      db.contacts.push({
+        id: `con_imp_${++importSeq}`,
+        churchId,
+        name: row.lead_pastor.trim(),
+        title: 'Lead Pastor',
+        role: 'pastor',
+        kfaRole: 'none',
+        email: '',
+        phone: '',
+        archived: false,
+        createdAt: TODAY,
+      });
+    }
+
+    if (row.other_staff?.trim()) {
+      for (const name of row.other_staff.split(';').map(s => s.trim()).filter(Boolean)) {
+        db.contacts.push({
+          id: `con_imp_${++importSeq}`,
+          churchId,
+          name,
+          title: 'Staff',
+          role: 'staff',
+          kfaRole: 'none',
+          email: '',
+          phone: '',
+          archived: false,
+          createdAt: TODAY,
+        });
+      }
+    }
+  }
+  return imported;
 }

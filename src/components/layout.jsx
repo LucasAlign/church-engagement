@@ -9,6 +9,7 @@ import {
   IconFileDescription,
   IconChartBar,
   IconSettings,
+  IconFileImport,
 } from '@tabler/icons-react';
 import { getOverdueTaskCount, getUserById } from '../data/helpers.js';
 import { useDb } from '../data/store.jsx';
@@ -22,6 +23,7 @@ const NAV_ITEMS = [
   { to: '/giving', label: 'Giving', icon: IconHeartHandshake },
   { to: '/reports', label: 'Impact reports', icon: IconFileDescription },
   { to: '/analytics', label: 'Analytics', icon: IconChartBar },
+  { to: '/import', label: 'Import CSV', icon: IconFileImport },
   { to: '/settings', label: 'Settings', icon: IconSettings },
 ];
 
