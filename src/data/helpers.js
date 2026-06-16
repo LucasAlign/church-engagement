@@ -113,6 +113,15 @@ export function getUserById(id) {
 export function getContactById(id) {
   return db.contacts.find(c => c.id === id);
 }
+export function getCongregantsByChurch(churchId) {
+  return db.notableCongregants.filter(c => c.churchId === churchId);
+}
+export function addCongregant({ churchId, name, title, category, email, phone, notes }) {
+  db.notableCongregants.push({
+    id: `cng_${++seq}`, churchId, name, title, category, email: email || null,
+    phone: phone || null, notes: notes || null, createdAt: TODAY,
+  });
+}
 
 // A task counts as overdue if flagged, or still open/in progress past its due date.
 export function isTaskOverdue(task) {

@@ -87,6 +87,16 @@ export const KFA_ROLE = {
   none: { label: '—', variant: 'gray' },
 };
 
+export const CONGREGANT_CATEGORY = {
+  business:   { label: 'Business',   variant: 'blue' },
+  political:  { label: 'Political',  variant: 'purple' },
+  community:  { label: 'Community',  variant: 'green' },
+  media:      { label: 'Media',      variant: 'amber' },
+  education:  { label: 'Education',  variant: 'blue' },
+  healthcare: { label: 'Healthcare', variant: 'green' },
+  other:      { label: 'Other',      variant: 'gray' },
+};
+
 export const PREFERRED_CONTACT = {
   phone: 'Prefers phone',
   email: 'Prefers email',

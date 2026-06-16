@@ -8,17 +8,18 @@ import {
   getChurchById, getContactsByChurch, getInteractionsByChurch, getTasksByChurch,
   getNotesByChurch, getMinistryByChurch, getChurchGivingSummary, getUserById,
   getContactById, isTaskOverdue, addNote, toggleTaskCompleted,
+  getCongregantsByChurch, addCongregant,
 } from '../data/helpers.js';
 import {
   ENGAGEMENT_STATUS, GIVING_STATUS, GIVING_TYPE, INTERACTION_TYPE, MINISTRY_TYPE,
   MINISTRY_STATUS, TASK_PRIORITY, TASK_STATUS, KFA_ROLE, PREFERRED_CONTACT,
-  fmtDate, fmtMoney,
+  CONGREGANT_CATEGORY, fmtDate, fmtMoney,
 } from '../data/labels.js';
 import { Badge, MetricCard, AvatarInitials, EmptyState } from '../components/shared.jsx';
 import LogInteractionModal from '../components/LogInteractionModal.jsx';
 import { useDb } from '../data/store.jsx';
 
-const TABS = ['Overview', 'People', 'Timeline', 'Ministry', 'Giving', 'Notes', 'Tasks'];
+const TABS = ['Overview', 'Staff', 'Notable Congregants', 'Timeline', 'Ministry', 'Giving', 'Notes', 'Tasks'];
 
 function OverviewTab({ church }) {
   const giving = getChurchGivingSummary(church.id);
@@ -58,19 +59,19 @@ function OverviewTab({ church }) {
   );
 }
 
-function PeopleTab({ church }) {
+function StaffTab({ church }) {
   const contacts = getContactsByChurch(church.id);
   if (!contacts.length) {
     return (
       <div className="card">
-        <EmptyState icon={IconUserCircle} title="No leadership contacts yet" sub="Add the first contact for this church." />
+        <EmptyState icon={IconUserCircle} title="No staff contacts yet" sub="Add the first staff member for this church." />
       </div>
     );
   }
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button className="btn"><IconPlus stroke={2} /> Add contact</button>
+        <button className="btn"><IconPlus stroke={2} /> Add staff</button>
       </div>
       <div className="people-grid">
         {contacts.map(p => {
@@ -93,6 +94,104 @@ function PeopleTab({ church }) {
               <div className="pc-actions">
                 <button className="btn sm"><IconPencil stroke={1.75} /> Edit</button>
                 <button className="btn sm"><IconArchive stroke={1.75} /> Archive</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+function NotableCongregrantsTab({ church }) {
+  const { refresh } = useDb();
+  const [adding, setAdding] = useState(false);
+  const [form, setForm] = useState({ name: '', title: '', category: 'business', email: '', phone: '', notes: '' });
+  const congregants = getCongregantsByChurch(church.id);
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+
+  const save = () => {
+    if (!form.name.trim()) return;
+    addCongregant({ churchId: church.id, ...form });
+    setForm({ name: '', title: '', category: 'business', email: '', phone: '', notes: '' });
+    setAdding(false);
+    refresh();
+  };
+
+  return (
+    <>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+        <button className="btn primary" onClick={() => setAdding(a => !a)}>
+          <IconPlus stroke={2} /> Add congregant
+        </button>
+      </div>
+
+      {adding && (
+        <div className="card card-pad" style={{ marginBottom: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="field">
+              <label className="field-label">Full name *</label>
+              <input className="select" value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. John Smith" />
+            </div>
+            <div className="field">
+              <label className="field-label">Title / Role</label>
+              <input className="select" value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g. CEO, Smith Industries" />
+            </div>
+            <div className="field">
+              <label className="field-label">Category</label>
+              <select className="select" value={form.category} onChange={e => set('category', e.target.value)}>
+                {Object.entries(CONGREGANT_CATEGORY).map(([k, v]) => (
+                  <option key={k} value={k}>{v.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label className="field-label">Email</label>
+              <input className="select" value={form.email} onChange={e => set('email', e.target.value)} placeholder="optional" />
+            </div>
+            <div className="field">
+              <label className="field-label">Phone</label>
+              <input className="select" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="optional" />
+            </div>
+            <div className="field">
+              <label className="field-label">Notes</label>
+              <input className="select" value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="optional" />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
+            <button className="btn" onClick={() => setAdding(false)}>Cancel</button>
+            <button className="btn primary" onClick={save}>Save</button>
+          </div>
+        </div>
+      )}
+
+      {congregants.length === 0 && !adding && (
+        <div className="card">
+          <EmptyState icon={IconUsers} title="No notable congregants yet" sub="Track key business leaders, community figures, and other notable members." />
+        </div>
+      )}
+
+      <div className="people-grid">
+        {congregants.map(c => {
+          const cat = CONGREGANT_CATEGORY[c.category] || CONGREGANT_CATEGORY.other;
+          return (
+            <div className="card person-card" key={c.id}>
+              <div className="pc-head">
+                <AvatarInitials name={c.name} size="md" />
+                <div style={{ flex: 1 }}>
+                  <div className="pc-name">{c.name}</div>
+                  <div className="pc-role">{c.title || '—'}</div>
+                </div>
+                <Badge label={cat.label} variant={cat.variant} />
+              </div>
+              <div className="pc-contact">
+                {c.email && <span><IconMail stroke={1.75} /> {c.email}</span>}
+                {c.phone && <span><IconPhone stroke={1.75} /> {c.phone}</span>}
+                {c.notes && <span className="text-secondary">{c.notes}</span>}
+              </div>
+              <div className="pc-actions">
+                <button className="btn sm"><IconPencil stroke={1.75} /> Edit</button>
               </div>
             </div>
           );
@@ -374,7 +473,8 @@ export default function ChurchProfile() {
         ))}
       </div>
       {tab === 'Overview' && <OverviewTab church={church} />}
-      {tab === 'People' && <PeopleTab church={church} />}
+      {tab === 'Staff' && <StaffTab church={church} />}
+      {tab === 'Notable Congregants' && <NotableCongregrantsTab church={church} />}
       {tab === 'Timeline' && <TimelineTab church={church} onLog={() => setLogging(true)} />}
       {tab === 'Ministry' && <MinistryTab church={church} />}
       {tab === 'Giving' && <GivingTab church={church} />}
