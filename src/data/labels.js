@@ -97,6 +97,32 @@ export const CONGREGANT_CATEGORY = {
   other:      { label: 'Other',      variant: 'gray' },
 };
 
+export const CARE_COMMUNITY_STATUS = {
+  active:    { label: 'Active',    variant: 'green' },
+  forming:   { label: 'Forming',   variant: 'amber' },
+  inactive:  { label: 'Inactive',  variant: 'gray' },
+};
+
+export const ADVOCATE_STATUS = {
+  active:    { label: 'Active',    variant: 'green' },
+  inactive:  { label: 'Inactive',  variant: 'gray' },
+  prospect:  { label: 'Prospect',  variant: 'amber' },
+};
+
+export const CONNECTION_TYPE = {
+  referral:    { label: 'Referral',    variant: 'blue' },
+  partnership: { label: 'Partnership', variant: 'green' },
+  volunteer:   { label: 'Volunteer',   variant: 'amber' },
+  donor:       { label: 'Donor',       variant: 'purple' },
+  other:       { label: 'Other',       variant: 'gray' },
+};
+
+export const CONNECTION_STATUS = {
+  active:   { label: 'Active',   variant: 'green' },
+  inactive: { label: 'Inactive', variant: 'gray' },
+  pending:  { label: 'Pending',  variant: 'amber' },
+};
+
 export const PREFERRED_CONTACT = {
   phone: 'Prefers phone',
   email: 'Prefers email',

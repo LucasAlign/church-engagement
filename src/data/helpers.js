@@ -208,6 +208,74 @@ export function getMissingReports(year = 2025) {
 
 // --- prototype-only mutations; swap for Supabase inserts/updates later ---
 let seq = 100;
+let _dbListeners = [];
+function notifyDb() { _dbListeners.forEach(fn => fn()); }
+export function subscribeDb(fn) { _dbListeners.push(fn); return () => { _dbListeners = _dbListeners.filter(f => f !== fn); }; }
+
+export function addContact({ churchId, name, position, email, phone, kfaRole, preferredContact, notes }) {
+  const id = `con_${++seq}`;
+  db.contacts.push({ id, churchId, name, title: position || '', role: 'staff', kfaRole: kfaRole || null, email: email || null, phone: phone || null, archived: false, createdAt: TODAY });
+  notifyDb(); return id;
+}
+export function updateContact(id, fields) {
+  const c = db.contacts.find(x => x.id === id); if (c) Object.assign(c, fields); notifyDb();
+}
+export function addCareCommunity({ churchId, name, status, startDate, notes }) {
+  if (!db.careCommunities) db.careCommunities = [];
+  db.careCommunities.push({ id: `cc_${++seq}`, churchId, name, status: status || 'forming', startDate: startDate || null, notes: notes || null, createdAt: TODAY }); notifyDb();
+}
+export function updateCareCommunity(id, fields) {
+  if (!db.careCommunities) return; const c = db.careCommunities.find(x => x.id === id); if (c) Object.assign(c, fields); notifyDb();
+}
+export function addAdvocate({ churchId, name, email, phone, status, notes }) {
+  if (!db.advocates) db.advocates = [];
+  db.advocates.push({ id: `adv_${++seq}`, churchId, name, email: email || null, phone: phone || null, status: status || 'prospect', notes: notes || null, createdAt: TODAY }); notifyDb();
+}
+export function updateAdvocate(id, fields) {
+  if (!db.advocates) return; const a = db.advocates.find(x => x.id === id); if (a) Object.assign(a, fields); notifyDb();
+}
+export function addConnection({ churchId, name, type, status, notes }) {
+  if (!db.connections) db.connections = [];
+  db.connections.push({ id: `conn_${++seq}`, churchId, name, type: type || 'other', status: status || 'active', notes: notes || null, createdAt: TODAY }); notifyDb();
+}
+export function updateConnection(id, fields) {
+  if (!db.connections) return; const c = db.connections.find(x => x.id === id); if (c) Object.assign(c, fields); notifyDb();
+}
+export function addChurch({ name, address, city, state, zip, phone, email, website, denomination, attendanceMin, attendanceMax, engagementStatus, notes }) {
+  const id = `ch_${++seq}`;
+  db.churches.push({ id, name, address: address || null, city: city || '', state: state || 'PA', zip: zip || null, phone: phone || null, email: email || null, website: website || null, denomination: denomination || null, attendanceMin: parseInt(attendanceMin) || 0, attendanceMax: parseInt(attendanceMax) || 0, engagementStatus: engagementStatus || 'not_contacted', lastInteractionDate: null, firstContactDate: null, assignedCoordinatorId: null, notes: notes || null });
+  notifyDb(); return id;
+}
+export function updateChurch(id, fields) {
+  const c = db.churches.find(x => x.id === id); if (c) Object.assign(c, fields); notifyDb();
+}
+export function addMinistryEngagement({ churchId, ministry, status, startDate, notes }) {
+  db.ministryEngagements.push({ id: `min_${++seq}`, churchId, ministry, status: status || 'exploring', startDate: startDate || null, notes: notes || null }); notifyDb();
+}
+export function updateMinistryEngagement(id, fields) {
+  const m = db.ministryEngagements.find(x => x.id === id); if (m) Object.assign(m, fields); notifyDb();
+}
+export function addGivingRecord({ churchId, date, amount, type, notes }) {
+  db.givingRecords.push({ id: `giv_${++seq}`, churchId, date, amount: parseFloat(amount) || 0, type: type || 'one_time', notes: notes || null }); notifyDb();
+}
+export function updateGivingRecord(id, fields) {
+  const g = db.givingRecords.find(x => x.id === id); if (g) Object.assign(g, fields); notifyDb();
+}
+export function addTask({ churchId, title, dueDate, priority, status, assignedTo, notes }) {
+  db.tasks.push({ id: `tsk_${++seq}`, churchId: churchId || null, title, dueDate: dueDate || null, priority: priority || 'medium', status: status || 'open', assignedTo: assignedTo || null, notes: notes || null }); notifyDb();
+}
+export function updateTask(id, fields) {
+  const t = db.tasks.find(x => x.id === id); if (t) Object.assign(t, fields); notifyDb();
+}
+export function addImpactReport({ churchId, year, fileUrl, notes }) {
+  db.impactReports.push({ id: `rpt_${++seq}`, churchId, year, fileUrl: fileUrl || null, notes: notes || null, createdAt: TODAY }); notifyDb();
+}
+export function replaceImpactReport(id, fields) {
+  const r = db.impactReports.find(x => x.id === id); if (r) Object.assign(r, fields); notifyDb();
+}
+export function updateUser(id, fields) {
+  const u = db.users.find(x => x.id === id); if (u) Object.assign(u, fields); notifyDb();
+}
 
 export function importChurches(rows) {
   const today = new Date().toISOString().slice(0, 10);
