@@ -1,0 +1,16 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  height: 100%;
+  font-family: 'Calibri', 'Segoe UI', 'Gill Sans MT', 'Helvetica Neue', sans-serif;
+  background: #0C0E07;
+  color: #D2C7A2;
+}
+
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #5A3A20; border-radius: 2px; }
