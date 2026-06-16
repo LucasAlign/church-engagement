@@ -208,6 +208,66 @@ export function getMissingReports(year = 2025) {
 
 // --- prototype-only mutations; swap for Supabase inserts/updates later ---
 let seq = 100;
+
+export function importChurches(rows) {
+  const today = new Date().toISOString().slice(0, 10);
+  let count = 0;
+  for (const r of rows) {
+    const churchId = `ch_imp_${++seq}`;
+    db.churches.push({
+      id: churchId,
+      name: r.name,
+      address: r.address || null,
+      city: r.city || '',
+      state: r.state || 'PA',
+      zip: r.zip || null,
+      phone: r.phone || null,
+      email: r.email || null,
+      website: r.website || null,
+      denomination: r.denomination || null,
+      attendanceMin: parseInt(r.attendance_min) || 0,
+      attendanceMax: parseInt(r.attendance_max) || 0,
+      engagementStatus: r.engagement_status || 'not_contacted',
+      notes: r.notes || null,
+      lastInteractionDate: null,
+      firstContactDate: null,
+      assignedCoordinatorId: null,
+    });
+    if (r.lead_pastor && r.lead_pastor.trim()) {
+      db.contacts.push({
+        id: `con_imp_${++seq}`,
+        churchId,
+        name: r.lead_pastor.trim(),
+        title: 'Lead Pastor',
+        role: 'pastor',
+        kfaRole: null,
+        email: null,
+        phone: null,
+        archived: false,
+        createdAt: today,
+      });
+    }
+    if (r.other_staff && r.other_staff.trim()) {
+      const staffList = r.other_staff.split(';').map(s => s.trim()).filter(Boolean);
+      for (const staffName of staffList) {
+        db.contacts.push({
+          id: `con_imp_${++seq}`,
+          churchId,
+          name: staffName,
+          title: 'Staff',
+          role: 'staff',
+          kfaRole: null,
+          email: null,
+          phone: null,
+          archived: false,
+          createdAt: today,
+        });
+      }
+    }
+    count++;
+  }
+  return count;
+}
 export function addInteraction({ churchId, type, date, notes }) {
   db.interactions.unshift({
     id: `int_${++seq}`, churchId, contactId: null, type, date, userId: 'usr_001', notes, attendeeCount: null,

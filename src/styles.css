@@ -748,3 +748,21 @@ textarea.select { resize: vertical; min-height: 70px; }
   color: var(--text-secondary);
   white-space: nowrap;
 }
+
+/* Import page */
+.import-dropzone {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 40px;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  text-align: center;
+}
+.import-dropzone:hover, .import-dropzone.drag-over {
+  border-color: var(--blue-400);
+  background: var(--blue-bg);
+}

@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IconLayoutGrid, IconList, IconAdjustmentsHorizontal, IconPlus, IconBuildingChurch } from '@tabler/icons-react';
+import { IconLayoutGrid, IconList, IconAdjustmentsHorizontal, IconPlus, IconBuildingChurch, IconFileSpreadsheet } from '@tabler/icons-react';
 import db from '../data/db.js';
 import { getContactsByChurch, getUserById, contactStatus } from '../data/helpers.js';
 import { ENGAGEMENT_STATUS, fmtDate } from '../data/labels.js';
@@ -40,7 +40,12 @@ export default function Churches() {
       <Header
         title="Churches"
         subtitle={`${db.churches.length} churches in Berks County`}
-        actions={<button className="btn primary"><IconPlus stroke={2} /> Add church</button>}
+        actions={
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn sm" onClick={() => navigate('/import')}><IconFileSpreadsheet stroke={1.75} /> Import CSV</button>
+            <button className="btn primary"><IconPlus stroke={2} /> Add church</button>
+          </div>
+        }
       />
       <div className="toolbar">
         <div style={{ flex: 1, minWidth: 260 }}>
