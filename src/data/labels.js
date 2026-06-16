@@ -87,28 +87,40 @@ export const KFA_ROLE = {
   none: { label: '—', variant: 'gray' },
 };
 
+export const CONGREGANT_CATEGORY = {
+  business:   { label: 'Business',   variant: 'blue' },
+  political:  { label: 'Political',  variant: 'purple' },
+  community:  { label: 'Community',  variant: 'green' },
+  media:      { label: 'Media',      variant: 'amber' },
+  education:  { label: 'Education',  variant: 'blue' },
+  healthcare: { label: 'Healthcare', variant: 'green' },
+  other:      { label: 'Other',      variant: 'gray' },
+};
+
 export const CARE_COMMUNITY_STATUS = {
-  active: { label: 'Active', variant: 'green' },
-  forming: { label: 'Forming', variant: 'amber' },
-  inactive: { label: 'Inactive', variant: 'gray' },
+  active:    { label: 'Active',    variant: 'green' },
+  forming:   { label: 'Forming',   variant: 'amber' },
+  inactive:  { label: 'Inactive',  variant: 'gray' },
 };
 
 export const ADVOCATE_STATUS = {
-  active: { label: 'Active', variant: 'green' },
-  inactive: { label: 'Inactive', variant: 'gray' },
+  active:    { label: 'Active',    variant: 'green' },
+  inactive:  { label: 'Inactive',  variant: 'gray' },
+  prospect:  { label: 'Prospect',  variant: 'amber' },
 };
 
 export const CONNECTION_TYPE = {
-  attendee: { label: 'Attendee', variant: 'blue' },
-  volunteer: { label: 'Volunteer', variant: 'green' },
-  foster_parent: { label: 'Foster parent', variant: 'purple' },
-  donor: { label: 'Donor', variant: 'amber' },
-  other: { label: 'Other', variant: 'gray' },
+  referral:    { label: 'Referral',    variant: 'blue' },
+  partnership: { label: 'Partnership', variant: 'green' },
+  volunteer:   { label: 'Volunteer',   variant: 'amber' },
+  donor:       { label: 'Donor',       variant: 'purple' },
+  other:       { label: 'Other',       variant: 'gray' },
 };
 
 export const CONNECTION_STATUS = {
-  active: { label: 'Active', variant: 'green' },
+  active:   { label: 'Active',   variant: 'green' },
   inactive: { label: 'Inactive', variant: 'gray' },
+  pending:  { label: 'Pending',  variant: 'amber' },
 };
 
 export const PREFERRED_CONTACT = {

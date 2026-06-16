@@ -9,6 +9,7 @@ import Giving from './pages/Giving.jsx';
 import ImpactReports from './pages/ImpactReports.jsx';
 import Analytics from './pages/Analytics.jsx';
 import Settings from './pages/Settings.jsx';
+import Import from './pages/Import.jsx';
 
 export default function App() {
   return (
@@ -23,6 +24,7 @@ export default function App() {
         <Route path="/reports" element={<ImpactReports />} />
         <Route path="/analytics" element={<Analytics />} />
         <Route path="/settings" element={<Settings />} />
+        <Route path="/import" element={<Import />} />
       </Routes>
     </AppShell>
   );

@@ -3,6 +3,20 @@
 import { IconSearch, IconX } from '@tabler/icons-react';
 import { initialsOf } from '../data/labels.js';
 
+// Green dot = contacted within 90 days, red = overdue or never
+export function ContactDot({ status, date }) {
+  const label = date
+    ? `Last contact: ${date}${status === 'red' ? ' (overdue)' : ''}`
+    : 'Never contacted';
+  return (
+    <span
+      className={`contact-dot contact-dot-${status}`}
+      title={label}
+      aria-label={label}
+    />
+  );
+}
+
 export function Badge({ label, variant = 'gray' }) {
   return <span className={`badge ${variant}`}>{label}</span>;
 }
