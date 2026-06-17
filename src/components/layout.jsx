@@ -4,9 +4,7 @@ import {
   IconBell,
   IconLogout,
 } from '@tabler/icons-react';
-import { getUserById } from '../data/helpers.js';
 import { useDb } from '../data/store.jsx';
-import { AvatarInitials } from './shared.jsx';
 
 function FlockLogo() {
   return (
@@ -34,7 +32,6 @@ const NAV_ITEMS = [
 ];
 
 function TopNav() {
-  const me = getUserById('usr_001') ?? { name: 'User', initials: 'U' };
   return (
     <header className="top-nav">
       <div className="top-nav-left">
@@ -45,7 +42,6 @@ function TopNav() {
           <span className="brand-wordmark">Flock</span>
         </div>
         <div className="top-nav-sep" />
-        <span className="top-nav-role">KFA Coordinator</span>
         <nav className="top-nav-items">
           {NAV_ITEMS.map(({ to, label, end }) => (
             <NavLink
@@ -67,7 +63,6 @@ function TopNav() {
         <button className="icon-btn">
           <IconBell stroke={1.75} />
         </button>
-        <AvatarInitials name={me.name} initials={me.initials} size="sm" />
         <button className="top-nav-btn">
           <IconLogout stroke={1.75} />
           Sign out

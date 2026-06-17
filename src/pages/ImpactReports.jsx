@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import { IconFileTypePdf, IconAlertTriangle, IconCloudUpload, IconUpload } from '@tabler/icons-react';
 import db from '../data/db.js';
 import {
-  getChurchById, getUserById, getMissingReports, addImpactReport,
+  getChurchById, getMissingReports, addImpactReport,
   replaceImpactReport, addTask, TODAY,
 } from '../data/helpers.js';
 import { fmtDate } from '../data/labels.js';
@@ -45,13 +45,14 @@ export default function ImpactReports() {
   const { refresh } = useDb();
   const uploadRef = useRef(null);
   const replaceRef = useRef(null);
-  const [churchId, setChurchId] = useState(db.churches[0].id);
-  const [year, setYear] = useState('2025');
+  const currentYear = new Date().getFullYear();
+  const [churchId, setChurchId] = useState(db.churches[0]?.id ?? '');
+  const [year, setYear] = useState(String(currentYear - 1));
   const [pendingFile, setPendingFile] = useState(null);
   const [replacing, setReplacing] = useState(null); // report id awaiting a file
   const [requested, setRequested] = useState(new Set());
-  const reports = [...db.impactReports].sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt));
-  const missing = getMissingReports(2025);
+  const reports = [...db.impactReports].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const missing = getMissingReports();
 
   const fileMeta = file => ({
     fileName: file.name,
@@ -91,8 +92,8 @@ export default function ImpactReports() {
   const request = church => {
     addTask({
       churchId: church.id,
-      title: 'Request 2025 impact report',
-      assignedTo: church.assignedCoordinatorId || 'usr_001',
+      title: `Request ${currentYear - 1} impact report`,
+      assignedTo: church.assignedCoordinatorId || null,
       dueDate: TODAY,
       priority: 'medium',
     });
@@ -117,13 +118,12 @@ export default function ImpactReports() {
         <div className="reports-stack">
           {reports.map(r => {
             const church = getChurchById(r.churchId);
-            const uploader = getUserById(r.uploadedBy);
             return (
               <div className="card report-card" key={r.id}>
                 <div className="rc-icon"><IconFileTypePdf stroke={1.75} /></div>
                 <div>
                   <div className="rc-title">{church?.name} — {r.year} impact report</div>
-                  <div className="rc-meta">Uploaded {fmtDate(r.uploadedAt)} by {uploader?.name} · {r.fileSizeMb} MB</div>
+                  <div className="rc-meta">Uploaded {fmtDate(r.createdAt)} · {r.fileSizeMb} MB</div>
                 </div>
                 <div className="rc-actions">
                   <button className="btn sm" onClick={() => view(r)}>View</button>
@@ -137,7 +137,7 @@ export default function ImpactReports() {
             <div className="card report-card" key={church.id}>
               <div className="rc-icon warn"><IconAlertTriangle stroke={1.75} /></div>
               <div>
-                <div className="rc-title">{church.name} — 2025 impact report</div>
+                <div className="rc-title">{church.name} — {currentYear - 1} impact report</div>
                 <div className="rc-meta">
                   {requested.has(church.id)
                     ? 'Request task created for the assigned coordinator'
@@ -181,7 +181,7 @@ export default function ImpactReports() {
           <div className="field">
             <label className="field-label">Report year</label>
             <select className="select" value={year} onChange={e => setYear(e.target.value)}>
-              {['2025', '2024', '2023', '2022'].map(y => <option key={y} value={y}>{y}</option>)}
+              {[0, 1, 2, 3].map(n => String(currentYear - 1 - n)).map(y => <option key={y} value={y}>{y}</option>)}
             </select>
           </div>
           <button className="btn primary" style={{ width: '100%', justifyContent: 'center' }} onClick={upload}>

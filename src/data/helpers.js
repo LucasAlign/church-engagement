@@ -2,15 +2,16 @@
 // When moving to a real backend, replace each with a Supabase query or SQL view.
 import db from './db.js';
 
-// Frozen "today" so the prototype renders deterministically.
-export const TODAY = '2026-06-09';
+export const TODAY = new Date().toISOString().slice(0, 10);
 
 // Dashboard summary cards
 export function getDashboardStats() {
-  const now = new Date(TODAY);
+  const now = new Date();
   const ninetyDaysAgo = new Date(now - 90 * 864e5).toISOString().slice(0, 10);
-  const thisYearStart = '2026-01-01';
-  const thisMonthStart = '2026-06-01';
+  const yr = now.getFullYear();
+  const mo = String(now.getMonth() + 1).padStart(2, '0');
+  const thisYearStart = `${yr}-01-01`;
+  const thisMonthStart = `${yr}-${mo}-01`;
   return {
     totalChurches: db.churches.length,
     activePartners: db.churches.filter(c =>
@@ -39,9 +40,10 @@ export function getDashboardStats() {
 
 // Church profile — aggregate giving summary
 export function getChurchGivingSummary(churchId) {
+  const yr = new Date().getFullYear();
   const records = db.givingRecords.filter(g => g.churchId === churchId);
-  const thisYear = records.filter(g => g.date >= '2026-01-01');
-  const lastYear = records.filter(g => g.date >= '2025-01-01' && g.date < '2026-01-01');
+  const thisYear = records.filter(g => g.date >= `${yr}-01-01`);
+  const lastYear = records.filter(g => g.date >= `${yr - 1}-01-01` && g.date < `${yr}-01-01`);
   const total = records.reduce((s, g) => s + g.amount, 0);
   const thisYearTotal = thisYear.reduce((s, g) => s + g.amount, 0);
   const lastYearTotal = lastYear.reduce((s, g) => s + g.amount, 0);
@@ -58,12 +60,12 @@ export function getChurchGivingSummary(churchId) {
 
 // Churches needing attention flags
 export function getAttentionFlags() {
-  const ninetyDaysAgo = new Date(new Date(TODAY) - 90 * 864e5).toISOString().slice(0, 10);
-  const currentYear = '2026';
+  const ninetyDaysAgo = new Date(new Date() - 90 * 864e5).toISOString().slice(0, 10);
+  const currentYear = String(new Date().getFullYear());
   const flags = [];
   for (const church of db.churches) {
     if (church.lastInteractionDate < ninetyDaysAgo)
-      flags.push({ churchId: church.id, reason: 'no_recent_contact', label: `No contact in ${Math.floor((new Date(TODAY) - new Date(church.lastInteractionDate)) / 864e5)} days` });
+      flags.push({ churchId: church.id, reason: 'no_recent_contact', label: `No contact in ${Math.floor((new Date() - new Date(church.lastInteractionDate)) / 864e5)} days` });
     const contacts = db.contacts.filter(c => c.churchId === church.id && !c.archived);
     if (!contacts.length)
       flags.push({ churchId: church.id, reason: 'no_leadership', label: 'Missing leadership information' });
@@ -165,8 +167,9 @@ export function getPipelineCounts() {
 
 // Top giving partners (year-to-date), descending
 export function getTopGivingPartners(limit = 6) {
+  const ytdStart = `${new Date().getFullYear()}-01-01`;
   const totals = {};
-  for (const g of db.givingRecords.filter(g => g.date >= '2026-01-01')) {
+  for (const g of db.givingRecords.filter(g => g.date >= ytdStart)) {
     totals[g.churchId] = (totals[g.churchId] || 0) + g.amount;
   }
   return Object.entries(totals)
@@ -177,9 +180,11 @@ export function getTopGivingPartners(limit = 6) {
 
 // Giving page summary
 export function getGivingStats() {
-  const ytd = db.givingRecords.filter(g => g.date >= '2026-01-01');
-  const priorYear = db.givingRecords.filter(g => g.date >= '2025-01-01' && g.date < '2026-01-01');
-  const thisMonth = db.givingRecords.filter(g => g.date >= '2026-06-01');
+  const yr = new Date().getFullYear();
+  const mo = String(new Date().getMonth() + 1).padStart(2, '0');
+  const ytd = db.givingRecords.filter(g => g.date >= `${yr}-01-01`);
+  const priorYear = db.givingRecords.filter(g => g.date >= `${yr - 1}-01-01` && g.date < `${yr}-01-01`);
+  const thisMonth = db.givingRecords.filter(g => g.date >= `${yr}-${mo}-01`);
   const ytdTotal = ytd.reduce((s, g) => s + g.amount, 0);
   const priorTotal = priorYear.reduce((s, g) => s + g.amount, 0);
   return {
@@ -200,7 +205,7 @@ export function getGivingStatusBreakdown() {
 }
 
 // Active/strategic partners missing the current-cycle impact report
-export function getMissingReports(year = 2025) {
+export function getMissingReports(year = new Date().getFullYear() - 1) {
   return db.churches.filter(c =>
     ['active_partner', 'strategic_partner'].includes(c.engagementStatus) &&
     !db.impactReports.some(r => r.churchId === c.id && r.year === year));
@@ -343,14 +348,14 @@ export function importChurches(rows) {
 }
 export function addInteraction({ churchId, type, date, notes }) {
   db.interactions.unshift({
-    id: `int_${++seq}`, churchId, contactId: null, type, date, userId: 'usr_001', notes, attendeeCount: null,
+    id: `int_${++seq}`, churchId, contactId: null, type, date, userId: null, notes, attendeeCount: null,
   });
   const church = getChurchById(churchId);
   if (church && date > church.lastInteractionDate) church.lastInteractionDate = date;
 }
 export function addNote({ churchId, body, pinned, internalOnly }) {
   db.churchNotes.unshift({
-    id: `note_${++seq}`, churchId, body, authorId: 'usr_001', pinned, internalOnly, createdAt: TODAY,
+    id: `note_${++seq}`, churchId, body, authorId: null, pinned, internalOnly, createdAt: TODAY,
   });
 }
 export function toggleTaskCompleted(taskId) {
