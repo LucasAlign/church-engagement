@@ -16,9 +16,18 @@ export function DbProvider({ children }) {
   const refresh = useCallback(() => setVersion(v => v + 1), []);
   useEffect(() => {
     if (!isRemote()) return;
+    const timeout = setTimeout(() => {
+      console.error('Backend initialization timeout');
+      setBackendError('Supabase connection timeout');
+      setBackend('error');
+    }, 5000);
     initBackend()
-      .then(() => setBackend('remote'))
+      .then(() => {
+        clearTimeout(timeout);
+        setBackend('remote');
+      })
       .catch(err => {
+        clearTimeout(timeout);
         console.error(err);
         setBackendError(err.message);
         setBackend('error');
