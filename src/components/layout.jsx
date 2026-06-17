@@ -34,7 +34,7 @@ const NAV_ITEMS = [
 ];
 
 function TopNav() {
-  const me = getUserById('usr_001');
+  const me = getUserById('usr_001') ?? { name: 'User', initials: 'U' };
   return (
     <header className="top-nav">
       <div className="top-nav-left">
