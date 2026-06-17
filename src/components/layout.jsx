@@ -5,6 +5,7 @@ import {
   IconLogout,
 } from '@tabler/icons-react';
 import { getUserById } from '../data/helpers.js';
+import { useDb } from '../data/store.jsx';
 import { AvatarInitials } from './shared.jsx';
 
 function FlockLogo() {
