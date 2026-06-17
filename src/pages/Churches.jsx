@@ -1,11 +1,12 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IconLayoutGrid, IconList, IconAdjustmentsHorizontal, IconPlus, IconBuildingChurch, IconFileSpreadsheet } from '@tabler/icons-react';
+import { IconLayoutGrid, IconList, IconAdjustmentsHorizontal, IconPlus, IconBuildingChurch, IconFileSpreadsheet, IconEdit, IconX } from '@tabler/icons-react';
 import db from '../data/db.js';
 import { getContactsByChurch, getUserById, contactStatus } from '../data/helpers.js';
 import { ENGAGEMENT_STATUS, fmtDate } from '../data/labels.js';
 import { Header } from '../components/layout.jsx';
 import { Badge, SearchBar, FilterPills, AvatarInitials, EmptyState, ContactDot } from '../components/shared.jsx';
+import { saveRecord } from '../data/backend.js';
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'All statuses' },
@@ -19,11 +20,182 @@ function attendanceRange(c) {
   return `${c.attendanceMin}–${c.attendanceMax}`;
 }
 
+function ChurchForm({ church, onSave, onCancel }) {
+  const [formData, setFormData] = useState(church || {});
+
+  const handleChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = () => {
+    if (!formData.id) {
+      formData.id = `ch_${Date.now()}`;
+    }
+    const existing = db.churches.findIndex(c => c.id === formData.id);
+    if (existing >= 0) {
+      db.churches[existing] = formData;
+    } else {
+      db.churches.push(formData);
+    }
+    saveRecord('churches', formData);
+    onSave();
+  };
+
+  const fields = [
+    { label: 'Name', key: 'name', required: true },
+    { label: 'Address', key: 'address' },
+    { label: 'City', key: 'city' },
+    { label: 'State', key: 'state' },
+    { label: 'Zip', key: 'zip' },
+    { label: 'Phone', key: 'phone' },
+    { label: 'Email', key: 'email', type: 'email' },
+    { label: 'Website', key: 'website' },
+    { label: 'Denomination', key: 'denomination' },
+    { label: 'Min Attendance', key: 'attendanceMin', type: 'number' },
+    { label: 'Max Attendance', key: 'attendanceMax', type: 'number' },
+    { label: 'Engagement Status', key: 'engagementStatus' },
+    { label: 'Assigned Coordinator ID', key: 'assignedCoordinatorId' },
+    { label: 'Notes', key: 'notes', type: 'textarea' },
+  ];
+
+  return (
+    <div className="modal-overlay" onClick={onCancel} style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1001,
+    }}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        width: '90%',
+        maxWidth: '600px',
+        maxHeight: '80vh',
+        overflow: 'auto',
+        boxShadow: '0 20px 25px rgba(0, 0, 0, 0.15)',
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '24px',
+          borderBottom: '1px solid var(--border)',
+        }}>
+          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
+            {church?.id ? 'Edit' : 'Add'} Church
+          </h2>
+          <button onClick={onCancel} style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 8,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--text-tertiary)',
+          }}>
+            <IconX stroke={1.5} size={20} />
+          </button>
+        </div>
+
+        <div style={{ padding: '24px' }}>
+          {fields.map(field => (
+            <div key={field.key} style={{ marginBottom: 16 }}>
+              <label style={{
+                display: 'block',
+                marginBottom: 6,
+                fontSize: '12px',
+                fontWeight: 600,
+                color: 'var(--text-secondary)',
+                textTransform: 'uppercase',
+              }}>
+                {field.label}
+                {field.required && <span style={{ color: 'var(--red-500)' }}>*</span>}
+              </label>
+              {field.type === 'textarea' ? (
+                <textarea
+                  value={formData[field.key] || ''}
+                  onChange={e => handleChange(field.key, e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    minHeight: '80px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              ) : (
+                <input
+                  type={field.type || 'text'}
+                  value={formData[field.key] || ''}
+                  onChange={e => handleChange(field.key, e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div style={{
+          display: 'flex',
+          gap: 8,
+          padding: '24px',
+          borderTop: '1px solid var(--border)',
+          justifyContent: 'flex-end',
+        }}>
+          <button onClick={onCancel} style={{
+            padding: '8px 16px',
+            border: '1px solid var(--border)',
+            backgroundColor: 'transparent',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 500,
+          }}>
+            Cancel
+          </button>
+          <button onClick={handleSave} style={{
+            padding: '8px 16px',
+            backgroundColor: 'var(--primary-500)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 500,
+          }}>
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function Churches() {
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [view, setView] = useState('table');
+  const [editingChurch, setEditingChurch] = useState(null);
+  const [isAdding, setIsAdding] = useState(false);
 
   const churches = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -43,7 +215,7 @@ export default function Churches() {
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn sm" onClick={() => navigate('/import')}><IconFileSpreadsheet stroke={1.75} /> Import CSV</button>
-            <button className="btn primary"><IconPlus stroke={2} /> Add church</button>
+            <button className="btn primary" onClick={() => setIsAdding(true)}><IconPlus stroke={2} /> Add church</button>
           </div>
         }
       />
@@ -103,7 +275,10 @@ export default function Churches() {
                       </span>
                     </td>
                     <td className="cell-muted">{coordinator ? coordinator.name : '—'}</td>
-                    <td><button className="btn sm" onClick={e => { e.stopPropagation(); navigate(`/churches/${c.id}`); }}>View</button></td>
+                    <td style={{ display: 'flex', gap: 6 }}>
+                      <button className="btn sm" onClick={e => { e.stopPropagation(); setEditingChurch(c); }}>Edit</button>
+                      <button className="btn sm" onClick={e => { e.stopPropagation(); navigate(`/churches/${c.id}`); }}>View</button>
+                    </td>
                   </tr>
                 );
               })}
@@ -118,17 +293,26 @@ export default function Churches() {
             const coordinator = c.assignedCoordinatorId ? getUserById(c.assignedCoordinatorId) : null;
             const st = ENGAGEMENT_STATUS[c.engagementStatus] || { label: c.engagementStatus, variant: 'gray' };
             return (
-              <div className="card church-card" key={c.id} onClick={() => navigate(`/churches/${c.id}`)}>
-                <div className="cc-head">
-                  <AvatarInitials name={c.name} size="md" />
-                  <div>
-                    <div className="cc-name">{c.name}</div>
-                    <div className="cc-city">{c.city}, {c.state}</div>
+              <div className="card church-card" key={c.id}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+                  <div className="cc-head">
+                    <AvatarInitials name={c.name} size="md" />
+                    <div>
+                      <div className="cc-name">{c.name}</div>
+                      <div className="cc-city">{c.city}, {c.state}</div>
+                    </div>
                   </div>
+                  <button
+                    className="btn sm"
+                    onClick={() => setEditingChurch(c)}
+                    style={{ padding: '6px 12px' }}
+                  >
+                    <IconEdit stroke={1.5} size={16} />
+                  </button>
                 </div>
                 <Badge label={st.label} variant={st.variant} />
                 <div className="cc-foot">
-                  <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer' }} onClick={() => navigate(`/churches/${c.id}`)}>
                     <ContactDot status={contactStatus(c.lastInteractionDate)} date={fmtDate(c.lastInteractionDate)} />
                     Last contact {fmtDate(c.lastInteractionDate)}
                   </span>
@@ -140,6 +324,20 @@ export default function Churches() {
             );
           })}
         </div>
+      )}
+
+      {(editingChurch || isAdding) && (
+        <ChurchForm
+          church={editingChurch}
+          onSave={() => {
+            setEditingChurch(null);
+            setIsAdding(false);
+          }}
+          onCancel={() => {
+            setEditingChurch(null);
+            setIsAdding(false);
+          }}
+        />
       )}
     </>
   );
