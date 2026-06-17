@@ -620,6 +620,9 @@ textarea.select { resize: vertical; min-height: 70px; }
   border-radius: var(--radius-md);
   padding: 8px 14px;
   font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .import-success {
