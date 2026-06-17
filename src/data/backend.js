@@ -24,8 +24,9 @@ const TABLES = {
 
 // Optional chaining keeps this importable under plain node (test scripts),
 // where import.meta.env does not exist.
-const url = import.meta.env?.VITE_SUPABASE_URL;
-const anonKey = import.meta.env?.VITE_SUPABASE_ANON_KEY;
+// Temporarily disabled - using demo mode with sample data
+const url = null; // import.meta.env?.VITE_SUPABASE_URL;
+const anonKey = null; // import.meta.env?.VITE_SUPABASE_ANON_KEY;
 const supabase = url && anonKey ? createClient(url, anonKey) : null;
 
 export function isRemote() {
