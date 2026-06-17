@@ -3,13 +3,14 @@ import { useNavigate } from 'react-router-dom';
 import {
   IconSearch, IconMapPin, IconChevronRight, IconRefresh, IconX,
   IconUsers, IconBuildingChurch, IconHeartHandshake,
-  IconCheckbox, IconAlertCircle, IconPray, IconPhone, IconMail,
+  IconCheckbox, IconAlertCircle, IconPray, IconPhone, IconMail, IconEdit, IconPlus,
 } from '@tabler/icons-react';
 import db from '../data/db.js';
 import { contactStatus, isTaskOverdue, getContactsByChurch } from '../data/helpers.js';
 import { fmtDate } from '../data/labels.js';
 import { useDb } from '../data/store.jsx';
 import { ContactDot, AvatarInitials } from '../components/shared.jsx';
+import { saveRecord } from '../data/backend.js';
 
 function getDirectoryCounts() {
   return {
@@ -141,7 +142,199 @@ function PrayerSpotlightWidget() {
   );
 }
 
-function RecordDetailModal({ record, onClose }) {
+function RecordForm({ record, type, onSave, onCancel }) {
+  const [formData, setFormData] = useState(record || {});
+
+  const handleChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = () => {
+    if (!formData.id) {
+      const timestamp = Date.now();
+      const prefix = type === 'church' ? 'ch' : type === 'congregant' ? 'cg' : 'ct';
+      formData.id = `${prefix}_${timestamp}`;
+    }
+
+    const collection = type === 'church' ? 'churches' : type === 'congregant' ? 'notableCongregants' : 'contacts';
+    const existing = db[collection].findIndex(r => r.id === formData.id);
+    if (existing >= 0) {
+      db[collection][existing] = formData;
+    } else {
+      db[collection].push(formData);
+    }
+    saveRecord(collection, formData);
+    onSave();
+  };
+
+  const commonFields = [
+    { label: 'Name', key: 'name', required: true },
+    { label: 'Email', key: 'email', type: 'email' },
+    { label: 'Phone', key: 'phone' },
+  ];
+
+  const churchFields = [
+    ...commonFields,
+    { label: 'Address', key: 'address' },
+    { label: 'City', key: 'city' },
+    { label: 'State', key: 'state' },
+    { label: 'Zip', key: 'zip' },
+    { label: 'Website', key: 'website' },
+    { label: 'Denomination', key: 'denomination' },
+    { label: 'Min Attendance', key: 'attendanceMin', type: 'number' },
+    { label: 'Max Attendance', key: 'attendanceMax', type: 'number' },
+    { label: 'Engagement Status', key: 'engagementStatus' },
+    { label: 'Notes', key: 'notes', type: 'textarea' },
+  ];
+
+  const contactFields = [
+    ...commonFields,
+    { label: 'Title', key: 'title' },
+    { label: 'Church ID', key: 'churchId' },
+    { label: 'KFA Role', key: 'kfaRole' },
+  ];
+
+  const congregantFields = [
+    ...commonFields,
+    { label: 'Category', key: 'category' },
+    { label: 'Title', key: 'title' },
+    { label: 'Church ID', key: 'churchId' },
+  ];
+
+  const fields = type === 'church' ? churchFields : type === 'congregant' ? congregantFields : contactFields;
+
+  return (
+    <div className="modal-overlay" onClick={onCancel} style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1001,
+    }}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        width: '90%',
+        maxWidth: '600px',
+        maxHeight: '80vh',
+        overflow: 'auto',
+        boxShadow: '0 20px 25px rgba(0, 0, 0, 0.15)',
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '24px',
+          borderBottom: '1px solid var(--border)',
+        }}>
+          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
+            {record?.id ? 'Edit' : 'Add'} {type === 'church' ? 'Church' : type === 'congregant' ? 'Congregant' : 'Contact'}
+          </h2>
+          <button onClick={onCancel} style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 8,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--text-tertiary)',
+          }}>
+            <IconX stroke={1.5} size={20} />
+          </button>
+        </div>
+
+        <div style={{ padding: '24px' }}>
+          {fields.map(field => (
+            <div key={field.key} style={{ marginBottom: 16 }}>
+              <label style={{
+                display: 'block',
+                marginBottom: 6,
+                fontSize: '12px',
+                fontWeight: 600,
+                color: 'var(--text-secondary)',
+                textTransform: 'uppercase',
+              }}>
+                {field.label}
+                {field.required && <span style={{ color: 'var(--red-500)' }}>*</span>}
+              </label>
+              {field.type === 'textarea' ? (
+                <textarea
+                  value={formData[field.key] || ''}
+                  onChange={e => handleChange(field.key, e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    minHeight: '80px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              ) : (
+                <input
+                  type={field.type || 'text'}
+                  value={formData[field.key] || ''}
+                  onChange={e => handleChange(field.key, e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div style={{
+          display: 'flex',
+          gap: 8,
+          padding: '24px',
+          borderTop: '1px solid var(--border)',
+          justifyContent: 'flex-end',
+        }}>
+          <button onClick={onCancel} style={{
+            padding: '8px 16px',
+            border: '1px solid var(--border)',
+            backgroundColor: 'transparent',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 500,
+          }}>
+            Cancel
+          </button>
+          <button onClick={handleSave} style={{
+            padding: '8px 16px',
+            backgroundColor: 'var(--primary-500)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 500,
+          }}>
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RecordDetailModal({ record, onClose, onEdit }) {
   if (!record) return null;
 
   return (
@@ -180,18 +373,35 @@ function RecordDetailModal({ record, onClose }) {
               <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '14px' }}>{record.sub}</p>
             </div>
           </div>
-          <button onClick={onClose} style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 8,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--text-tertiary)',
-          }}>
-            <IconX stroke={1.5} size={20} />
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button onClick={() => onEdit(record)} style={{
+              background: 'none',
+              border: '1px solid var(--border)',
+              borderRadius: '6px',
+              cursor: 'pointer',
+              padding: '6px 12px',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 6,
+              fontSize: '14px',
+              fontWeight: 500,
+            }}>
+              <IconEdit stroke={1.5} size={16} />
+              Edit
+            </button>
+            <button onClick={onClose} style={{
+              background: 'none',
+              border: 'none',
+              cursor: 'pointer',
+              padding: 8,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'var(--text-tertiary)',
+            }}>
+              <IconX stroke={1.5} size={20} />
+            </button>
+          </div>
         </div>
 
         <div style={{ padding: '24px' }}>
@@ -295,6 +505,8 @@ function DatabaseWidget() {
   const [sortField, setSortField] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
   const [selectedRecord, setSelectedRecord] = useState(null);
+  const [editingRecord, setEditingRecord] = useState(null);
+  const [addingType, setAddingType] = useState(null);
   const allRecords = getAllRecords();
 
   const counts = {
@@ -355,7 +567,35 @@ function DatabaseWidget() {
   return (
     <div className="card">
       <div className="db-card-inner">
-        <div className="db-card-title">Database</div>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+          <div className="db-card-title">Database</div>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button
+              className="btn sm"
+              onClick={() => setAddingType('church')}
+              title="Add church"
+              style={{ padding: '6px 12px' }}
+            >
+              <IconBuildingChurch stroke={1.75} size={16} />
+            </button>
+            <button
+              className="btn sm"
+              onClick={() => setAddingType('contact')}
+              title="Add pastor/staff"
+              style={{ padding: '6px 12px' }}
+            >
+              <IconUsers stroke={1.75} size={16} />
+            </button>
+            <button
+              className="btn sm"
+              onClick={() => setAddingType('congregant')}
+              title="Add congregant"
+              style={{ padding: '6px 12px' }}
+            >
+              <IconHeartHandshake stroke={1.75} size={16} />
+            </button>
+          </div>
+        </div>
         <div className="search-bar">
           <IconSearch stroke={1.75} />
           <input
@@ -419,7 +659,35 @@ function DatabaseWidget() {
           ))}
         </tbody>
       </table>
-      <RecordDetailModal record={selectedRecord} onClose={() => setSelectedRecord(null)} />
+      {editingRecord && (
+        <RecordForm
+          record={editingRecord}
+          type={editingRecord.typeKey}
+          onSave={() => {
+            setEditingRecord(null);
+            setSelectedRecord(null);
+          }}
+          onCancel={() => setEditingRecord(null)}
+        />
+      )}
+      {addingType && (
+        <RecordForm
+          type={addingType}
+          onSave={() => {
+            setAddingType(null);
+          }}
+          onCancel={() => setAddingType(null)}
+        />
+      )}
+      {selectedRecord && !editingRecord && !addingType && (
+        <RecordDetailModal
+          record={selectedRecord}
+          onClose={() => setSelectedRecord(null)}
+          onEdit={(record) => {
+            setEditingRecord(record);
+          }}
+        />
+      )}
     </div>
   );
 }
