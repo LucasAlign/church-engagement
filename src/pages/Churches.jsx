@@ -84,7 +84,7 @@ export default function Churches() {
             <tbody>
               {churches.map(c => {
                 const coordinator = c.assignedCoordinatorId ? getUserById(c.assignedCoordinatorId) : null;
-                const st = ENGAGEMENT_STATUS[c.engagementStatus];
+                const st = ENGAGEMENT_STATUS[c.engagementStatus] || { label: c.engagementStatus, variant: 'gray' };
                 return (
                   <tr key={c.id} className="clickable" onClick={() => navigate(`/churches/${c.id}`)}>
                     <td>
@@ -116,7 +116,7 @@ export default function Churches() {
         <div className="church-grid">
           {churches.map(c => {
             const coordinator = c.assignedCoordinatorId ? getUserById(c.assignedCoordinatorId) : null;
-            const st = ENGAGEMENT_STATUS[c.engagementStatus];
+            const st = ENGAGEMENT_STATUS[c.engagementStatus] || { label: c.engagementStatus, variant: 'gray' };
             return (
               <div className="card church-card" key={c.id} onClick={() => navigate(`/churches/${c.id}`)}>
                 <div className="cc-head">
