@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   IconMapPin, IconUsers, IconCalendar, IconUserCircle, IconMail, IconPhone,
-  IconPlus, IconPencil, IconPinned, IconLock, IconArchive, IconBuildingChurch,
+  IconPlus, IconPencil, IconPinned, IconLock, IconArchive, IconBuildingChurch, IconX,
 } from '@tabler/icons-react';
 import {
   getChurchById, getContactsByChurch, getInteractionsByChurch, getTasksByChurch,
@@ -19,8 +19,438 @@ import {
 import { Badge, MetricCard, AvatarInitials, EmptyState, ContactDot } from '../components/shared.jsx';
 import LogInteractionModal from '../components/LogInteractionModal.jsx';
 import { useDb } from '../data/store.jsx';
+import db from '../data/db.js';
+import { saveRecord } from '../data/backend.js';
 
 const TABS = ['Overview', 'Staff', 'Notable Congregants', 'Timeline', 'Ministry', 'Giving', 'Notes', 'Tasks'];
+
+function StaffForm({ contact, churchId, onSave, onCancel }) {
+  const [formData, setFormData] = useState(contact || { churchId });
+
+  const handleChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = () => {
+    if (!formData.id) {
+      formData.id = `ct_${Date.now()}`;
+    }
+    const existing = db.contacts.findIndex(c => c.id === formData.id);
+    if (existing >= 0) {
+      db.contacts[existing] = formData;
+    } else {
+      db.contacts.push(formData);
+    }
+    saveRecord('contacts', formData);
+    onSave();
+  };
+
+  const fields = [
+    { label: 'Name', key: 'name', required: true },
+    { label: 'Title / Position', key: 'title' },
+    { label: 'Email', key: 'email', type: 'email' },
+    { label: 'Phone', key: 'phone' },
+    { label: 'KFA Role', key: 'kfaRole' },
+    { label: 'Preferred Contact', key: 'preferredContact' },
+    { label: 'Notes', key: 'notes', type: 'textarea' },
+  ];
+
+  return (
+    <div className="modal-overlay" onClick={onCancel} style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1001,
+    }}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        width: '90%',
+        maxWidth: '600px',
+        maxHeight: '80vh',
+        overflow: 'auto',
+        boxShadow: '0 20px 25px rgba(0, 0, 0, 0.15)',
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '24px',
+          borderBottom: '1px solid var(--border)',
+        }}>
+          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
+            {contact?.id ? 'Edit' : 'Add'} Staff
+          </h2>
+          <button onClick={onCancel} style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 8,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--text-tertiary)',
+          }}>
+            <IconX stroke={1.5} size={20} />
+          </button>
+        </div>
+
+        <div style={{ padding: '24px' }}>
+          {fields.map(field => (
+            <div key={field.key} style={{ marginBottom: 16 }}>
+              <label style={{
+                display: 'block',
+                marginBottom: 6,
+                fontSize: '12px',
+                fontWeight: 600,
+                color: 'var(--text-secondary)',
+                textTransform: 'uppercase',
+              }}>
+                {field.label}
+                {field.required && <span style={{ color: 'var(--red-500)' }}>*</span>}
+              </label>
+              {field.type === 'textarea' ? (
+                <textarea
+                  value={formData[field.key] || ''}
+                  onChange={e => handleChange(field.key, e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    minHeight: '80px',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              ) : (
+                <input
+                  type={field.type || 'text'}
+                  value={formData[field.key] || ''}
+                  onChange={e => handleChange(field.key, e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '8px 12px',
+                    border: '1px solid var(--border)',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    boxSizing: 'border-box',
+                  }}
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
+        <div style={{
+          display: 'flex',
+          gap: 8,
+          padding: '24px',
+          borderTop: '1px solid var(--border)',
+          justifyContent: 'flex-end',
+        }}>
+          <button onClick={onCancel} style={{
+            padding: '8px 16px',
+            border: '1px solid var(--border)',
+            backgroundColor: 'transparent',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 500,
+          }}>
+            Cancel
+          </button>
+          <button onClick={handleSave} style={{
+            padding: '8px 16px',
+            backgroundColor: 'var(--primary-500)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 500,
+          }}>
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function CongregantForm({ congregant, churchId, onSave, onCancel }) {
+  const { refresh } = useDb();
+  const [formData, setFormData] = useState(congregant || { churchId, category: 'business' });
+
+  const handleChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = () => {
+    if (!formData.name.trim()) return;
+
+    if (formData.id) {
+      const existing = db.notableCongregants.findIndex(c => c.id === formData.id);
+      if (existing >= 0) {
+        db.notableCongregants[existing] = formData;
+        saveRecord('notableCongregants', formData);
+      }
+    } else {
+      formData.id = `cg_${Date.now()}`;
+      db.notableCongregants.push(formData);
+      saveRecord('notableCongregants', formData);
+    }
+
+    onSave();
+    refresh();
+  };
+
+  return (
+    <div className="modal-overlay" onClick={onCancel} style={{
+      position: 'fixed',
+      top: 0,
+      left: 0,
+      right: 0,
+      bottom: 0,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: 1001,
+    }}>
+      <div className="modal-content" onClick={e => e.stopPropagation()} style={{
+        backgroundColor: 'white',
+        borderRadius: '12px',
+        width: '90%',
+        maxWidth: '600px',
+        maxHeight: '80vh',
+        overflow: 'auto',
+        boxShadow: '0 20px 25px rgba(0, 0, 0, 0.15)',
+      }}>
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '24px',
+          borderBottom: '1px solid var(--border)',
+        }}>
+          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
+            {congregant?.id ? 'Edit' : 'Add'} Congregant
+          </h2>
+          <button onClick={onCancel} style={{
+            background: 'none',
+            border: 'none',
+            cursor: 'pointer',
+            padding: 8,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'var(--text-tertiary)',
+          }}>
+            <IconX stroke={1.5} size={20} />
+          </button>
+        </div>
+
+        <div style={{ padding: '24px' }}>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{
+              display: 'block',
+              marginBottom: 6,
+              fontSize: '12px',
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+              textTransform: 'uppercase',
+            }}>
+              Full name <span style={{ color: 'var(--red-500)' }}>*</span>
+            </label>
+            <input
+              type="text"
+              value={formData.name || ''}
+              onChange={e => handleChange('name', e.target.value)}
+              placeholder="e.g. John Smith"
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{
+              display: 'block',
+              marginBottom: 6,
+              fontSize: '12px',
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+              textTransform: 'uppercase',
+            }}>Title / Role</label>
+            <input
+              type="text"
+              value={formData.title || ''}
+              onChange={e => handleChange('title', e.target.value)}
+              placeholder="e.g. CEO, Smith Industries"
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{
+              display: 'block',
+              marginBottom: 6,
+              fontSize: '12px',
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+              textTransform: 'uppercase',
+            }}>Category</label>
+            <select
+              value={formData.category || 'business'}
+              onChange={e => handleChange('category', e.target.value)}
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+                boxSizing: 'border-box',
+              }}
+            >
+              {Object.entries(CONGREGANT_CATEGORY).map(([k, v]) => (
+                <option key={k} value={k}>{v.label}</option>
+              ))}
+            </select>
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{
+              display: 'block',
+              marginBottom: 6,
+              fontSize: '12px',
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+              textTransform: 'uppercase',
+            }}>Email</label>
+            <input
+              type="email"
+              value={formData.email || ''}
+              onChange={e => handleChange('email', e.target.value)}
+              placeholder="optional"
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{
+              display: 'block',
+              marginBottom: 6,
+              fontSize: '12px',
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+              textTransform: 'uppercase',
+            }}>Phone</label>
+            <input
+              type="text"
+              value={formData.phone || ''}
+              onChange={e => handleChange('phone', e.target.value)}
+              placeholder="optional"
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+          <div style={{ marginBottom: 16 }}>
+            <label style={{
+              display: 'block',
+              marginBottom: 6,
+              fontSize: '12px',
+              fontWeight: 600,
+              color: 'var(--text-secondary)',
+              textTransform: 'uppercase',
+            }}>Notes</label>
+            <textarea
+              value={formData.notes || ''}
+              onChange={e => handleChange('notes', e.target.value)}
+              placeholder="optional"
+              style={{
+                width: '100%',
+                padding: '8px 12px',
+                border: '1px solid var(--border)',
+                borderRadius: '6px',
+                fontSize: '14px',
+                fontFamily: 'inherit',
+                minHeight: '60px',
+                boxSizing: 'border-box',
+              }}
+            />
+          </div>
+        </div>
+
+        <div style={{
+          display: 'flex',
+          gap: 8,
+          padding: '24px',
+          borderTop: '1px solid var(--border)',
+          justifyContent: 'flex-end',
+        }}>
+          <button onClick={onCancel} style={{
+            padding: '8px 16px',
+            border: '1px solid var(--border)',
+            backgroundColor: 'transparent',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 500,
+          }}>
+            Cancel
+          </button>
+          <button onClick={handleSave} style={{
+            padding: '8px 16px',
+            backgroundColor: 'var(--primary-500)',
+            color: 'white',
+            border: 'none',
+            borderRadius: '6px',
+            cursor: 'pointer',
+            fontSize: '14px',
+            fontWeight: 500,
+          }}>
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function OverviewTab({ church }) {
   const giving = getChurchGivingSummary(church.id);
@@ -61,19 +491,39 @@ function OverviewTab({ church }) {
 }
 
 function StaffTab({ church }) {
+  const { refresh } = useDb();
+  const [editingContact, setEditingContact] = useState(null);
+  const [isAdding, setIsAdding] = useState(false);
   const contacts = getContactsByChurch(church.id);
-  if (!contacts.length) {
+
+  if (!contacts.length && !isAdding) {
     return (
       <div className="card">
         <EmptyState icon={IconUserCircle} title="No staff contacts yet" sub="Add the first staff member for this church." />
       </div>
     );
   }
+
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button className="btn"><IconPlus stroke={2} /> Add staff</button>
+        <button className="btn primary" onClick={() => setIsAdding(true)}><IconPlus stroke={2} /> Add staff</button>
       </div>
+      {(editingContact || isAdding) && (
+        <StaffForm
+          contact={editingContact}
+          churchId={church.id}
+          onSave={() => {
+            setEditingContact(null);
+            setIsAdding(false);
+            refresh();
+          }}
+          onCancel={() => {
+            setEditingContact(null);
+            setIsAdding(false);
+          }}
+        />
+      )}
       <div className="people-grid">
         {contacts.map(p => {
           const role = KFA_ROLE[p.kfaRole] || KFA_ROLE.none;
@@ -88,7 +538,7 @@ function StaffTab({ church }) {
                     <ContactDot status={status} date={lastDate} />
                     {p.name}
                   </div>
-                  <div className="pc-role">{p.position}</div>
+                  <div className="pc-role">{p.title}</div>
                 </div>
                 <Badge label={role.label} variant={role.variant} />
               </div>
@@ -98,7 +548,7 @@ function StaffTab({ church }) {
                 <span className="text-secondary">{PREFERRED_CONTACT[p.preferredContact]}{p.notes ? ` · ${p.notes}` : ''}</span>
               </div>
               <div className="pc-actions">
-                <button className="btn sm"><IconPencil stroke={1.75} /> Edit</button>
+                <button className="btn sm" onClick={() => setEditingContact(p)}><IconPencil stroke={1.75} /> Edit</button>
                 <button className="btn sm"><IconArchive stroke={1.75} /> Archive</button>
               </div>
             </div>
@@ -111,68 +561,34 @@ function StaffTab({ church }) {
 
 function NotableCongregrantsTab({ church }) {
   const { refresh } = useDb();
-  const [adding, setAdding] = useState(false);
-  const [form, setForm] = useState({ name: '', title: '', category: 'business', email: '', phone: '', notes: '' });
+  const [editingCongregant, setEditingCongregant] = useState(null);
+  const [isAdding, setIsAdding] = useState(false);
   const congregants = getCongregantsByChurch(church.id);
-
-  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
-
-  const save = () => {
-    if (!form.name.trim()) return;
-    addCongregant({ churchId: church.id, ...form });
-    setForm({ name: '', title: '', category: 'business', email: '', phone: '', notes: '' });
-    setAdding(false);
-    refresh();
-  };
 
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button className="btn primary" onClick={() => setAdding(a => !a)}>
+        <button className="btn primary" onClick={() => setIsAdding(true)}>
           <IconPlus stroke={2} /> Add congregant
         </button>
       </div>
 
-      {adding && (
-        <div className="card card-pad" style={{ marginBottom: 14 }}>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
-            <div className="field">
-              <label className="field-label">Full name *</label>
-              <input className="select" value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. John Smith" />
-            </div>
-            <div className="field">
-              <label className="field-label">Title / Role</label>
-              <input className="select" value={form.title} onChange={e => set('title', e.target.value)} placeholder="e.g. CEO, Smith Industries" />
-            </div>
-            <div className="field">
-              <label className="field-label">Category</label>
-              <select className="select" value={form.category} onChange={e => set('category', e.target.value)}>
-                {Object.entries(CONGREGANT_CATEGORY).map(([k, v]) => (
-                  <option key={k} value={k}>{v.label}</option>
-                ))}
-              </select>
-            </div>
-            <div className="field">
-              <label className="field-label">Email</label>
-              <input className="select" value={form.email} onChange={e => set('email', e.target.value)} placeholder="optional" />
-            </div>
-            <div className="field">
-              <label className="field-label">Phone</label>
-              <input className="select" value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="optional" />
-            </div>
-            <div className="field">
-              <label className="field-label">Notes</label>
-              <input className="select" value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="optional" />
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 4 }}>
-            <button className="btn" onClick={() => setAdding(false)}>Cancel</button>
-            <button className="btn primary" onClick={save}>Save</button>
-          </div>
-        </div>
+      {(editingCongregant || isAdding) && (
+        <CongregantForm
+          congregant={editingCongregant}
+          churchId={church.id}
+          onSave={() => {
+            setEditingCongregant(null);
+            setIsAdding(false);
+          }}
+          onCancel={() => {
+            setEditingCongregant(null);
+            setIsAdding(false);
+          }}
+        />
       )}
 
-      {congregants.length === 0 && !adding && (
+      {congregants.length === 0 && !isAdding && (
         <div className="card">
           <EmptyState icon={IconUsers} title="No notable congregants yet" sub="Track key business leaders, community figures, and other notable members." />
         </div>
@@ -207,7 +623,7 @@ function NotableCongregrantsTab({ church }) {
                 <button className="btn sm" onClick={() => { updateCongregantContact(c.id); refresh(); }}>
                   ✓ Log contact
                 </button>
-                <button className="btn sm"><IconPencil stroke={1.75} /> Edit</button>
+                <button className="btn sm" onClick={() => setEditingCongregant(c)}><IconPencil stroke={1.75} /> Edit</button>
               </div>
             </div>
           );
