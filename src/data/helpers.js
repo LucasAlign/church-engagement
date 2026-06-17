@@ -88,6 +88,21 @@ export function getRecentActivity(limit = 10) {
     }));
 }
 
+// Contact freshness — green < 90 days, red >= 90 days or never
+export function contactStatus(dateStr) {
+  if (!dateStr) return 'red';
+  const days = (new Date() - new Date(dateStr)) / 864e5;
+  return days <= 90 ? 'green' : 'red';
+}
+
+// Last interaction date for a specific contact person
+export function getLastContactForContact(contactId) {
+  const hits = db.interactions
+    .filter(i => i.contactId === contactId)
+    .sort((a, b) => b.date.localeCompare(a.date));
+  return hits[0]?.date || null;
+}
+
 // Lookup helpers
 export function getChurchById(id) {
   return db.churches.find(c => c.id === id);
@@ -112,6 +127,20 @@ export function getUserById(id) {
 }
 export function getContactById(id) {
   return db.contacts.find(c => c.id === id);
+}
+export function getCongregantsByChurch(churchId) {
+  return db.notableCongregants.filter(c => c.churchId === churchId);
+}
+export function addCongregant({ churchId, name, title, category, email, phone, notes, lastContactDate }) {
+  db.notableCongregants.push({
+    id: `cng_${++seq}`, churchId, name, title, category, email: email || null,
+    phone: phone || null, notes: notes || null,
+    lastContactDate: lastContactDate || null, createdAt: TODAY,
+  });
+}
+export function updateCongregantContact(id) {
+  const c = db.notableCongregants.find(x => x.id === id);
+  if (c) c.lastContactDate = new Date().toISOString().slice(0, 10);
 }
 
 // A task counts as overdue if flagged, or still open/in progress past its due date.
@@ -179,7 +208,139 @@ export function getMissingReports(year = 2025) {
 
 // --- prototype-only mutations; swap for Supabase inserts/updates later ---
 let seq = 100;
-let importSeq = 10000;
+let _dbListeners = [];
+function notifyDb() { _dbListeners.forEach(fn => fn()); }
+export function subscribeDb(fn) { _dbListeners.push(fn); return () => { _dbListeners = _dbListeners.filter(f => f !== fn); }; }
+
+export function addContact({ churchId, name, position, email, phone, kfaRole, preferredContact, notes }) {
+  const id = `con_${++seq}`;
+  db.contacts.push({ id, churchId, name, title: position || '', role: 'staff', kfaRole: kfaRole || null, email: email || null, phone: phone || null, archived: false, createdAt: TODAY });
+  notifyDb(); return id;
+}
+export function updateContact(id, fields) {
+  const c = db.contacts.find(x => x.id === id); if (c) Object.assign(c, fields); notifyDb();
+}
+export function addCareCommunity({ churchId, name, status, startDate, notes }) {
+  if (!db.careCommunities) db.careCommunities = [];
+  db.careCommunities.push({ id: `cc_${++seq}`, churchId, name, status: status || 'forming', startDate: startDate || null, notes: notes || null, createdAt: TODAY }); notifyDb();
+}
+export function updateCareCommunity(id, fields) {
+  if (!db.careCommunities) return; const c = db.careCommunities.find(x => x.id === id); if (c) Object.assign(c, fields); notifyDb();
+}
+export function addAdvocate({ churchId, name, email, phone, status, notes }) {
+  if (!db.advocates) db.advocates = [];
+  db.advocates.push({ id: `adv_${++seq}`, churchId, name, email: email || null, phone: phone || null, status: status || 'prospect', notes: notes || null, createdAt: TODAY }); notifyDb();
+}
+export function updateAdvocate(id, fields) {
+  if (!db.advocates) return; const a = db.advocates.find(x => x.id === id); if (a) Object.assign(a, fields); notifyDb();
+}
+export function addConnection({ churchId, name, type, status, notes }) {
+  if (!db.connections) db.connections = [];
+  db.connections.push({ id: `conn_${++seq}`, churchId, name, type: type || 'other', status: status || 'active', notes: notes || null, createdAt: TODAY }); notifyDb();
+}
+export function updateConnection(id, fields) {
+  if (!db.connections) return; const c = db.connections.find(x => x.id === id); if (c) Object.assign(c, fields); notifyDb();
+}
+export function addChurch({ name, address, city, state, zip, phone, email, website, denomination, attendanceMin, attendanceMax, engagementStatus, notes }) {
+  const id = `ch_${++seq}`;
+  db.churches.push({ id, name, address: address || null, city: city || '', state: state || 'PA', zip: zip || null, phone: phone || null, email: email || null, website: website || null, denomination: denomination || null, attendanceMin: parseInt(attendanceMin) || 0, attendanceMax: parseInt(attendanceMax) || 0, engagementStatus: engagementStatus || 'not_contacted', lastInteractionDate: null, firstContactDate: null, assignedCoordinatorId: null, notes: notes || null });
+  notifyDb(); return id;
+}
+export function updateChurch(id, fields) {
+  const c = db.churches.find(x => x.id === id); if (c) Object.assign(c, fields); notifyDb();
+}
+export function addMinistryEngagement({ churchId, ministry, status, startDate, notes }) {
+  db.ministryEngagements.push({ id: `min_${++seq}`, churchId, ministry, status: status || 'exploring', startDate: startDate || null, notes: notes || null }); notifyDb();
+}
+export function updateMinistryEngagement(id, fields) {
+  const m = db.ministryEngagements.find(x => x.id === id); if (m) Object.assign(m, fields); notifyDb();
+}
+export function addGivingRecord({ churchId, date, amount, type, notes }) {
+  db.givingRecords.push({ id: `giv_${++seq}`, churchId, date, amount: parseFloat(amount) || 0, type: type || 'one_time', notes: notes || null }); notifyDb();
+}
+export function updateGivingRecord(id, fields) {
+  const g = db.givingRecords.find(x => x.id === id); if (g) Object.assign(g, fields); notifyDb();
+}
+export function addTask({ churchId, title, dueDate, priority, status, assignedTo, notes }) {
+  db.tasks.push({ id: `tsk_${++seq}`, churchId: churchId || null, title, dueDate: dueDate || null, priority: priority || 'medium', status: status || 'open', assignedTo: assignedTo || null, notes: notes || null }); notifyDb();
+}
+export function updateTask(id, fields) {
+  const t = db.tasks.find(x => x.id === id); if (t) Object.assign(t, fields); notifyDb();
+}
+export function addImpactReport({ churchId, year, fileUrl, notes }) {
+  db.impactReports.push({ id: `rpt_${++seq}`, churchId, year, fileUrl: fileUrl || null, notes: notes || null, createdAt: TODAY }); notifyDb();
+}
+export function replaceImpactReport(id, fields) {
+  const r = db.impactReports.find(x => x.id === id); if (r) Object.assign(r, fields); notifyDb();
+}
+export function updateUser(id, fields) {
+  const u = db.users.find(x => x.id === id); if (u) Object.assign(u, fields); notifyDb();
+}
+
+const VALID_ENGAGEMENT_STATUSES = new Set([
+  'not_contacted', 'initial_contact', 'interested',
+  'active_partner', 'strategic_partner', 'dormant',
+]);
+
+export function importChurches(rows) {
+  const today = new Date().toISOString().slice(0, 10);
+  let count = 0;
+  for (const r of rows) {
+    const churchId = `ch_imp_${++seq}`;
+    db.churches.push({
+      id: churchId,
+      name: r.name,
+      address: r.address || null,
+      city: r.city || '',
+      state: r.state || 'PA',
+      zip: r.zip || null,
+      phone: r.phone || null,
+      email: r.email || null,
+      website: r.website || null,
+      denomination: r.denomination || null,
+      attendanceMin: parseInt(r.attendance_min) || 0,
+      attendanceMax: parseInt(r.attendance_max) || 0,
+      engagementStatus: VALID_ENGAGEMENT_STATUSES.has(r.engagement_status) ? r.engagement_status : 'not_contacted',
+      notes: r.notes || null,
+      lastInteractionDate: null,
+      firstContactDate: null,
+      assignedCoordinatorId: null,
+    });
+    if (r.lead_pastor && r.lead_pastor.trim()) {
+      db.contacts.push({
+        id: `con_imp_${++seq}`,
+        churchId,
+        name: r.lead_pastor.trim(),
+        title: 'Lead Pastor',
+        role: 'pastor',
+        kfaRole: null,
+        email: null,
+        phone: null,
+        archived: false,
+        createdAt: today,
+      });
+    }
+    if (r.other_staff && r.other_staff.trim()) {
+      const staffList = r.other_staff.split(';').map(s => s.trim()).filter(Boolean);
+      for (const staffName of staffList) {
+        db.contacts.push({
+          id: `con_imp_${++seq}`,
+          churchId,
+          name: staffName,
+          title: 'Staff',
+          role: 'staff',
+          kfaRole: null,
+          email: null,
+          phone: null,
+          archived: false,
+          createdAt: today,
+        });
+      }
+    }
+    count++;
+  }
+  return count;
+}
 export function addInteraction({ churchId, type, date, notes }) {
   db.interactions.unshift({
     id: `int_${++seq}`, churchId, contactId: null, type, date, userId: 'usr_001', notes, attendeeCount: null,
@@ -196,73 +357,4 @@ export function toggleTaskCompleted(taskId) {
   const task = db.tasks.find(t => t.id === taskId);
   if (!task) return;
   task.status = task.status === 'completed' ? 'open' : 'completed';
-}
-
-const VALID_IMPORT_STATUSES = new Set([
-  'not_contacted', 'initial_contact', 'interested',
-  'active_partner', 'strategic_partner', 'dormant',
-]);
-
-export function importChurches(rows) {
-  let imported = 0;
-  for (const row of rows) {
-    if (!row.name) continue;
-    const churchId = `ch_imp_${++importSeq}`;
-    const status = VALID_IMPORT_STATUSES.has(row.engagement_status)
-      ? row.engagement_status
-      : 'not_contacted';
-    db.churches.push({
-      id: churchId,
-      name: row.name,
-      address: row.address || '',
-      city: row.city || '',
-      state: row.state || 'PA',
-      zip: row.zip || '',
-      phone: row.phone || '',
-      email: row.email || '',
-      website: row.website || '',
-      denomination: row.denomination || '',
-      attendanceMin: parseInt(row.attendance_min) || 0,
-      attendanceMax: parseInt(row.attendance_max) || 0,
-      engagementStatus: status,
-      lastInteractionDate: TODAY,
-      firstContactDate: TODAY,
-      assignedCoordinatorId: null,
-      notes: row.notes || '',
-    });
-    imported++;
-
-    if (row.lead_pastor?.trim()) {
-      db.contacts.push({
-        id: `con_imp_${++importSeq}`,
-        churchId,
-        name: row.lead_pastor.trim(),
-        title: 'Lead Pastor',
-        role: 'pastor',
-        kfaRole: 'none',
-        email: '',
-        phone: '',
-        archived: false,
-        createdAt: TODAY,
-      });
-    }
-
-    if (row.other_staff?.trim()) {
-      for (const name of row.other_staff.split(';').map(s => s.trim()).filter(Boolean)) {
-        db.contacts.push({
-          id: `con_imp_${++importSeq}`,
-          churchId,
-          name,
-          title: 'Staff',
-          role: 'staff',
-          kfaRole: 'none',
-          email: '',
-          phone: '',
-          archived: false,
-          createdAt: TODAY,
-        });
-      }
-    }
-  }
-  return imported;
 }

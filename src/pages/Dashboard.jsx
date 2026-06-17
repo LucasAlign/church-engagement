@@ -1,195 +1,225 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
 import {
-  IconMail, IconPhone, IconUsers, IconCalendarEvent, IconPresentation,
-  IconHeartHandshake, IconMessageCircle, IconPlus,
+  IconSearch, IconMapPin, IconChevronRight, IconRefresh,
+  IconUsers, IconBuildingChurch, IconHeartHandshake,
+  IconCheckbox, IconAlertCircle, IconPray,
 } from '@tabler/icons-react';
-import {
-  getDashboardStats, getPipelineCounts, getRecentActivity, getAttentionFlags,
-  getTopGivingPartners, getChurchById, getUserById, isTaskOverdue, TODAY,
-} from '../data/helpers.js';
 import db from '../data/db.js';
-import { ENGAGEMENT_STATUS, INTERACTION_TYPE, TASK_PRIORITY, fmtDate, fmtMoney } from '../data/labels.js';
-import { Header } from '../components/layout.jsx';
-import { Badge, MetricCard, CSSBarChart } from '../components/shared.jsx';
-import LogInteractionModal from '../components/LogInteractionModal.jsx';
+import { contactStatus, isTaskOverdue } from '../data/helpers.js';
+import { fmtDate } from '../data/labels.js';
 import { useDb } from '../data/store.jsx';
+import { ContactDot } from '../components/shared.jsx';
 
-const STAGE_FILLS = {
-  not_contacted: 'var(--gray-bg)',
-  initial_contact: 'var(--blue-bg)',
-  interested: 'var(--amber-bg)',
-  active_partner: 'var(--green-bg)',
-  strategic_partner: 'var(--purple-bg)',
-  dormant: 'var(--gray-bg)',
-};
-const STAGE_TEXT = {
-  not_contacted: 'var(--gray-400)',
-  initial_contact: 'var(--blue-400)',
-  interested: 'var(--amber-600)',
-  active_partner: 'var(--green-400)',
-  strategic_partner: 'var(--purple-600)',
-  dormant: 'var(--gray-400)',
-};
+function getDirectoryCounts() {
+  return {
+    partnerChurches: db.churches.filter(c =>
+      ['active_partner', 'strategic_partner'].includes(c.engagementStatus)).length,
+    activeMinistries: db.ministryEngagements.filter(m => m.status === 'active').length,
+    openTasks: db.tasks.filter(t => t.status !== 'completed').length,
+    overdueTasks: db.tasks.filter(isTaskOverdue).length,
+  };
+}
 
-const FEED_ICONS = {
-  email: IconMail,
-  phone_call: IconPhone,
-  meeting: IconUsers,
-  lunch: IconUsers,
-  event_invitation: IconCalendarEvent,
-  presentation: IconPresentation,
-  stand_sunday: IconPresentation,
-  care_community_meeting: IconUsers,
-  volunteer_recruitment: IconUsers,
-  training: IconPresentation,
-  follow_up: IconMessageCircle,
-  giving_conversation: IconHeartHandshake,
-};
+function getAllRecords() {
+  const contacts = db.contacts.map(c => {
+    const church = db.churches.find(ch => ch.id === c.churchId);
+    const isAdvocate = c.kfaRole === 'advocate' || c.kfaRole === 'champion';
+    return {
+      id: c.id,
+      name: c.name,
+      sub: c.email,
+      typeKey: isAdvocate ? 'advocate' : 'volunteer',
+      typeLabel: isAdvocate ? 'Advocates' : 'Volunteers',
+      lastContact: church?.lastInteractionDate || null,
+    };
+  });
+  const churches = db.churches.map(ch => ({
+    id: ch.id,
+    name: ch.name,
+    sub: `${ch.city}, ${ch.state}`,
+    typeKey: 'church',
+    typeLabel: 'Churches',
+    lastContact: ch.lastInteractionDate || null,
+  }));
+  return [...contacts, ...churches];
+}
 
-function PipelineWidget() {
-  const counts = getPipelineCounts();
-  const total = Math.max(counts.reduce((s, c) => s + c.count, 0), 1);
+const FILTERS = [
+  { key: 'all', label: 'All' },
+  { key: 'volunteer', label: 'Volunteers' },
+  { key: 'advocate', label: 'Advocates' },
+  { key: 'family', label: 'Families' },
+  { key: 'church', label: 'Churches' },
+];
+
+function DirectoryWidget() {
+  const counts = getDirectoryCounts();
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+
+  const rows = [
+    { icon: IconBuildingChurch, label: 'Partner Churches',    count: counts.partnerChurches, color: 'green' },
+    { icon: IconHeartHandshake, label: 'Active Ministries',   count: counts.activeMinistries, color: 'blue' },
+    { icon: IconCheckbox,       label: 'Open Tasks',          count: counts.openTasks,       color: 'amber' },
+    { icon: IconAlertCircle,    label: 'Overdue Follow-ups',  count: counts.overdueTasks,    color: 'red' },
+  ];
+
   return (
-    <div className="card section">
-      <div className="card-header"><div className="card-title">Engagement pipeline</div></div>
-      <div className="card-pad">
-        <div className="pipeline-bar">
-          {counts.map(({ stage, count }) => (
+    <div className="card">
+      <div className="card-header">
+        <div className="card-title">Directory</div>
+        <span className="dir-updated">
+          <IconRefresh stroke={1.5} style={{ width: 12, height: 12 }} />
+          Updated {timeStr}
+        </span>
+      </div>
+      <div className="dir-list">
+        {rows.map(({ icon: Icon, label, count, color }) => (
+          <div className="dir-row" key={label}>
             <div
-              key={stage}
-              className="pipeline-segment"
-              style={{ background: STAGE_FILLS[stage], color: STAGE_TEXT[stage], flex: Math.max(count, 0.6) / total }}
+              className="dir-icon"
+              style={{
+                background: `var(--${color}-bg)`,
+                color: color === 'amber' ? 'var(--amber-600)' : color === 'purple' ? 'var(--purple-600)' : color === 'red' ? 'var(--red-400)' : `var(--${color}-400)`,
+              }}
             >
-              <span className="seg-count">{count}</span>
+              <Icon stroke={1.75} />
             </div>
-          ))}
-        </div>
-        <div className="pipeline-legend">
-          {counts.map(({ stage, count }) => (
-            <span key={stage} style={{ flex: Math.max(count, 0.6) / total }}>{ENGAGEMENT_STATUS[stage].label}</span>
-          ))}
-        </div>
+            <span className="dir-label">{label}</span>
+            <span
+              className="dir-count"
+              style={{
+                color: color === 'amber' ? 'var(--amber-600)' : color === 'purple' ? 'var(--purple-600)' : color === 'red' ? 'var(--red-400)' : `var(--${color}-400)`,
+              }}
+            >
+              {count}
+            </span>
+            <IconChevronRight stroke={1.5} className="dir-chevron" />
+          </div>
+        ))}
       </div>
     </div>
   );
 }
 
-function ActivityWidget() {
-  const items = getRecentActivity(5);
+function PrayerSpotlightWidget() {
   return (
     <div className="card">
       <div className="card-header">
-        <div className="card-title">Recent activity</div>
-        <Link className="card-link" to="/interactions">View all</Link>
+        <div className="card-title">🙏 Prayer Spotlight</div>
       </div>
-      <div className="feed">
-        {items.map(item => {
-          const Icon = FEED_ICONS[item.type] || IconMessageCircle;
-          const meta = INTERACTION_TYPE[item.type];
-          return (
-            <div className="feed-item" key={item.id}>
-              <div className="feed-icon" style={{ background: `var(--${meta.variant}-bg)`, color: meta.variant === 'amber' ? 'var(--amber-600)' : meta.variant === 'purple' ? 'var(--purple-600)' : `var(--${meta.variant}-400)` }}>
-                <Icon stroke={1.75} />
-              </div>
-              <div className="feed-body">
-                <div className="feed-title">
-                  <Link to={`/churches/${item.churchId}`}>{item.church?.name}</Link> · {meta.label}
-                </div>
-                <div className="feed-meta">{fmtDate(item.date)} · {item.user?.name}</div>
-                <div className="feed-notes">{item.notes}</div>
-              </div>
-            </div>
-          );
-        })}
+      <div className="empty-state" style={{ padding: '32px 20px' }}>
+        <IconPray stroke={1.25} />
+        <div className="es-title">Prayer spotlight coming soon</div>
+        <div>Prayer requests will surface</div>
       </div>
     </div>
   );
 }
 
-const PRIORITY_DOTS = { critical: 'var(--red-400)', high: 'var(--red-400)', medium: 'var(--amber-600)', low: 'var(--gray-400)' };
+function DatabaseWidget() {
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState('all');
+  const allRecords = getAllRecords();
 
-function FollowUpWidget() {
-  const tasks = db.tasks
-    .filter(t => t.status !== 'completed')
-    .sort((a, b) => a.dueDate.localeCompare(b.dueDate))
-    .slice(0, 5);
+  const counts = {
+    all: allRecords.length,
+    volunteer: allRecords.filter(r => r.typeKey === 'volunteer').length,
+    advocate: allRecords.filter(r => r.typeKey === 'advocate').length,
+    family: 0,
+    church: allRecords.filter(r => r.typeKey === 'church').length,
+  };
+
+  let filtered = filter === 'all' ? allRecords : allRecords.filter(r => r.typeKey === filter);
+  if (search) {
+    const q = search.toLowerCase();
+    filtered = filtered.filter(r => r.name.toLowerCase().includes(q) || r.sub.toLowerCase().includes(q));
+  }
+
   return (
     <div className="card">
-      <div className="card-header">
-        <div className="card-title">Upcoming follow-ups</div>
-        <Link className="card-link" to="/follow-ups">View all</Link>
-      </div>
-      <div>
-        {tasks.map(task => {
-          const overdue = isTaskOverdue(task);
-          const church = getChurchById(task.churchId);
-          return (
-            <div className={`task-card ${overdue ? 'overdue' : ''}`} key={task.id}>
-              <span className="priority-dot" style={{ background: PRIORITY_DOTS[task.priority] }} />
-              <div style={{ flex: 1 }}>
-                <div className="task-church">{church?.name}</div>
-                <div className="task-title">{task.title}</div>
-                <div className="task-badges">
-                  <span className={`due-badge ${overdue ? 'overdue' : ''}`}>Due {fmtDate(task.dueDate)}</span>
-                  <Badge label={TASK_PRIORITY[task.priority].label} variant={TASK_PRIORITY[task.priority].variant} />
-                </div>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-const FLAG_ACTIONS = {
-  no_recent_contact: 'Log contact',
-  no_leadership: 'Add contact',
-  missing_report: 'Request',
-  no_coordinator: 'Assign',
-};
-
-function AttentionWidget() {
-  const navigate = useNavigate();
-  const flags = getAttentionFlags();
-  return (
-    <div className="card section">
-      <div className="card-header"><div className="card-title">Churches needing attention</div></div>
-      <div>
-        {flags.map((flag, i) => {
-          const church = getChurchById(flag.churchId);
-          return (
-            <div className="attention-row" key={`${flag.churchId}-${flag.reason}-${i}`}>
-              <div>
-                <div className="att-church">{church?.name}</div>
-                <div className="att-label">{flag.label}</div>
-              </div>
-              <button className="btn sm att-action" onClick={() => navigate(`/churches/${flag.churchId}`)}>
-                {FLAG_ACTIONS[flag.reason]}
+      <div className="db-card-inner">
+        <div className="db-card-title">Database</div>
+        <div className="search-bar">
+          <IconSearch stroke={1.75} />
+          <input
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            placeholder="Search all records..."
+          />
+        </div>
+        <div className="db-filter-row">
+          <div className="db-filter-pills">
+            {FILTERS.map(f => (
+              <button
+                key={f.key}
+                className={`db-filter-pill${filter === f.key ? ' active' : ''}`}
+                onClick={() => setFilter(f.key)}
+              >
+                {f.label}
+                <span className="db-pill-count">{counts[f.key]}</span>
               </button>
-            </div>
-          );
-        })}
+            ))}
+          </div>
+          <div className="location-pill">
+            <IconMapPin stroke={1.75} style={{ width: 12, height: 12 }} />
+            Berks
+          </div>
+        </div>
       </div>
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th>NAME</th>
+            <th>TYPE</th>
+            <th>LAST CONTACT</th>
+            <th style={{ width: 32 }} />
+          </tr>
+        </thead>
+        <tbody>
+          {filtered.map(r => (
+            <tr key={r.id}>
+              <td>
+                <div className="cell-stack">
+                  <div className="cell-primary">{r.name}</div>
+                  <div className="cell-secondary">{r.sub}</div>
+                </div>
+              </td>
+              <td>
+                <span className="db-type-link">{r.typeLabel}</span>
+              </td>
+              <td>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                  <ContactDot status={contactStatus(r.lastContact)} date={r.lastContact ? fmtDate(r.lastContact) : null} />
+                  {r.lastContact
+                    ? <span className="db-last-badge">{fmtDate(r.lastContact)}</span>
+                    : <span className="cell-muted">Never</span>}
+                </span>
+              </td>
+              <td>
+                <IconChevronRight stroke={1.5} style={{ width: 14, height: 14, color: 'var(--text-tertiary)', display: 'block' }} />
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
     </div>
   );
 }
 
-function GivingBarWidget() {
-  const partners = getTopGivingPartners(6);
+function ToDoWidget() {
   return (
-    <div className="card section">
+    <div className="card">
       <div className="card-header">
-        <div className="card-title">Giving overview — top partners (YTD)</div>
-        <Link className="card-link" to="/giving">View all</Link>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <IconCheckbox stroke={1.75} style={{ width: 16, height: 16 }} />
+          <span className="card-title">To-Do</span>
+        </div>
       </div>
-      <div className="card-pad">
-        <CSSBarChart
-          color="green"
-          data={partners.map(p => ({ label: p.church?.name, value: p.total }))}
-          format={fmtMoney}
-        />
+      <div className="empty-state" style={{ padding: '32px 20px' }}>
+        <IconCheckbox stroke={1.25} />
+        <div className="es-title">Personal task list coming soon</div>
+        <div>To-do items will be available</div>
       </div>
     </div>
   );
@@ -197,37 +227,24 @@ function GivingBarWidget() {
 
 export default function Dashboard() {
   useDb();
-  const [logging, setLogging] = useState(false);
-  const stats = getDashboardStats();
   return (
-    <>
-      <Header
-        title="Dashboard"
-        subtitle={`Berks County · ${fmtDate(TODAY)}`}
-        actions={
-          <button className="btn primary" onClick={() => setLogging(true)}>
-            <IconPlus stroke={2} /> Log interaction
-          </button>
-        }
-      />
-      <div className="metric-grid">
-        <MetricCard label="Total churches" value={stats.totalChurches} />
-        <MetricCard label="Active partner churches" value={stats.activePartners} />
-        <MetricCard label="Contacted this month" value={stats.contactedThisMonth} />
-        <MetricCard label="Need follow-up" value={stats.needFollowUp} />
-        <MetricCard label="Giving this year" value={fmtMoney(stats.totalGivingThisYear)} sub={`${stats.givingThisYear} churches giving`} />
-        <MetricCard label="Care Communities" value={stats.careCommunitiesActive} />
-        <MetricCard label="New relationships" value={stats.newRelationships} sub="Last 90 days" />
-        <MetricCard label="Upcoming meetings" value={stats.upcomingMeetings} />
+    <div>
+      <div className="overview-topbar">
+        <button className="btn sm">
+          <IconRefresh stroke={1.75} />
+          Reset layout
+        </button>
       </div>
-      <PipelineWidget />
-      <div className="grid-2 section">
-        <ActivityWidget />
-        <FollowUpWidget />
+      <div className="overview-grid">
+        <div className="overview-left">
+          <DirectoryWidget />
+          <PrayerSpotlightWidget />
+        </div>
+        <div className="overview-right">
+          <DatabaseWidget />
+          <ToDoWidget />
+        </div>
       </div>
-      <AttentionWidget />
-      <GivingBarWidget />
-      {logging && <LogInteractionModal onClose={() => setLogging(false)} />}
-    </>
+    </div>
   );
 }
