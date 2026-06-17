@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   IconSearch, IconMapPin, IconChevronRight, IconRefresh,
   IconUsers, IconBuildingChurch, IconHeartHandshake,
@@ -118,6 +119,7 @@ function PrayerSpotlightWidget() {
 }
 
 function DatabaseWidget() {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
   const [filter, setFilter] = useState('all');
   const allRecords = getAllRecords();
@@ -178,7 +180,13 @@ function DatabaseWidget() {
         </thead>
         <tbody>
           {filtered.map(r => (
-            <tr key={r.id}>
+            <tr key={r.id} className="clickable" onClick={() => {
+              if (r.typeKey === 'church') {
+                navigate(`/churches/${r.id}`);
+              } else {
+                navigate(`/churches/${r.id}`);
+              }
+            }}>
               <td>
                 <div className="cell-stack">
                   <div className="cell-primary">{r.name}</div>
