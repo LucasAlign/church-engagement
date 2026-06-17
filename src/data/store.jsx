@@ -18,9 +18,8 @@ export function DbProvider({ children }) {
     if (!isRemote()) return;
     const timeout = setTimeout(() => {
       console.error('Backend initialization timeout');
-      setBackendError('Supabase connection timeout');
-      setBackend('error');
-    }, 5000);
+      setBackend('demo');
+    }, 3000);
     initBackend()
       .then(() => {
         clearTimeout(timeout);
@@ -28,9 +27,8 @@ export function DbProvider({ children }) {
       })
       .catch(err => {
         clearTimeout(timeout);
-        console.error(err);
-        setBackendError(err.message);
-        setBackend('error');
+        console.error('Backend initialization error:', err);
+        setBackend('demo');
       });
   }, []);
   if (backend === 'loading') {
