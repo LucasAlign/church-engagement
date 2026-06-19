@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   IconMapPin, IconUsers, IconCalendar, IconUserCircle, IconMail, IconPhone,
-  IconPlus, IconPencil, IconPinned, IconLock, IconArchive, IconBuildingChurch, IconX,
+  IconPlus, IconPencil, IconPinned, IconLock, IconArchive, IconBuildingChurch, IconX, IconAlertCircle, IconLoader,
 } from '@tabler/icons-react';
 import {
   getChurchById, getContactsByChurch, getInteractionsByChurch, getTasksByChurch,
@@ -22,34 +22,54 @@ import FormModal from '../components/FormModal.jsx';
 import { useDb } from '../data/store.jsx';
 import db from '../data/db.js';
 import { saveRecord } from '../data/backend.js';
+import { validateContact, validateCongregant } from '../data/validation.js';
 
 const TABS = ['Overview', 'Staff', 'Notable Congregants', 'Timeline', 'Ministry', 'Giving', 'Notes', 'Tasks'];
 
 function StaffForm({ contact, churchId, onSave, onCancel }) {
   const [formData, setFormData] = useState(contact || { churchId });
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
   };
 
-  const handleSave = () => {
-    if (!formData.id) {
-      formData.id = `ct_${Date.now()}`;
+  const handleSave = async () => {
+    const validation = validateContact(formData);
+    if (!validation.isValid) {
+      setErrors(validation.errors);
+      return;
     }
-    const existing = db.contacts.findIndex(c => c.id === formData.id);
-    if (existing >= 0) {
-      db.contacts[existing] = formData;
-    } else {
-      db.contacts.push(formData);
+
+    setLoading(true);
+    try {
+      if (!formData.id) {
+        formData.id = `ct_${Date.now()}`;
+      }
+      const existing = db.contacts.findIndex(c => c.id === formData.id);
+      if (existing >= 0) {
+        db.contacts[existing] = formData;
+      } else {
+        db.contacts.push(formData);
+      }
+      saveRecord('contacts', formData);
+      onSave();
+    } catch (err) {
+      setErrorMessage('Failed to save staff member. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    saveRecord('contacts', formData);
-    onSave();
   };
 
   const fields = [
-    { label: 'Name', key: 'name', required: true },
+    { label: 'Name', key: 'name', required: true, error: errors.name },
     { label: 'Title / Position', key: 'title' },
-    { label: 'Email', key: 'email', type: 'email' },
+    { label: 'Email', key: 'email', type: 'email', error: errors.email },
     { label: 'Phone', key: 'phone' },
     { label: 'KFA Role', key: 'kfaRole' },
     { label: 'Preferred Contact', key: 'preferredContact' },
@@ -59,46 +79,67 @@ function StaffForm({ contact, churchId, onSave, onCancel }) {
   const title = contact?.id ? 'Edit Staff' : 'Add Staff';
 
   return (
-    <FormModal
-      title={title}
-      fields={fields}
-      formData={formData}
-      onChange={handleChange}
-      onSave={handleSave}
-      onCancel={onCancel}
-    />
+    <>
+      <FormModal
+        title={title}
+        fields={fields}
+        formData={formData}
+        onChange={handleChange}
+        onSave={handleSave}
+        onCancel={onCancel}
+        loading={loading}
+      />
+      <ErrorToast message={errorMessage} onClose={() => setErrorMessage('')} />
+    </>
   );
 }
 
 function CongregantForm({ congregant, churchId, onSave, onCancel }) {
   const { refresh } = useDb();
   const [formData, setFormData] = useState(congregant || { churchId, category: 'business' });
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
   };
 
-  const handleSave = () => {
-    if (!formData.name.trim()) return;
-
-    if (formData.id) {
-      const existing = db.notableCongregants.findIndex(c => c.id === formData.id);
-      if (existing >= 0) {
-        db.notableCongregants[existing] = formData;
-        saveRecord('notableCongregants', formData);
-      }
-    } else {
-      formData.id = `cg_${Date.now()}`;
-      db.notableCongregants.push(formData);
-      saveRecord('notableCongregants', formData);
+  const handleSave = async () => {
+    const validation = validateCongregant(formData);
+    if (!validation.isValid) {
+      setErrors(validation.errors);
+      return;
     }
 
-    onSave();
-    refresh();
+    setLoading(true);
+    try {
+      if (formData.id) {
+        const existing = db.notableCongregants.findIndex(c => c.id === formData.id);
+        if (existing >= 0) {
+          db.notableCongregants[existing] = formData;
+          saveRecord('notableCongregants', formData);
+        }
+      } else {
+        formData.id = `cg_${Date.now()}`;
+        db.notableCongregants.push(formData);
+        saveRecord('notableCongregants', formData);
+      }
+
+      onSave();
+      refresh();
+    } catch (err) {
+      setErrorMessage('Failed to save congregant. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const fields = [
-    { label: 'Full name', key: 'name', required: true, placeholder: 'e.g. John Smith' },
+    { label: 'Full name', key: 'name', required: true, placeholder: 'e.g. John Smith', error: errors.name },
     { label: 'Title / Role', key: 'title', placeholder: 'e.g. CEO, Smith Industries' },
     {
       label: 'Category',
@@ -109,7 +150,7 @@ function CongregantForm({ congregant, churchId, onSave, onCancel }) {
         label: v.label,
       })),
     },
-    { label: 'Email', key: 'email', type: 'email', placeholder: 'optional' },
+    { label: 'Email', key: 'email', type: 'email', placeholder: 'optional', error: errors.email },
     { label: 'Phone', key: 'phone', placeholder: 'optional' },
     { label: 'Notes', key: 'notes', type: 'textarea', placeholder: 'optional' },
   ];
@@ -117,14 +158,18 @@ function CongregantForm({ congregant, churchId, onSave, onCancel }) {
   const title = congregant?.id ? 'Edit Congregant' : 'Add Congregant';
 
   return (
-    <FormModal
-      title={title}
-      fields={fields}
-      formData={formData}
-      onChange={handleChange}
-      onSave={handleSave}
-      onCancel={onCancel}
-    />
+    <>
+      <FormModal
+        title={title}
+        fields={fields}
+        formData={formData}
+        onChange={handleChange}
+        onSave={handleSave}
+        onCancel={onCancel}
+        loading={loading}
+      />
+      <ErrorToast message={errorMessage} onClose={() => setErrorMessage('')} />
+    </>
   );
 }
 
@@ -590,5 +635,39 @@ export default function ChurchProfile() {
       {tab === 'Tasks' && <TasksTab church={church} />}
       {logging && <LogInteractionModal churchId={church.id} onClose={() => setLogging(false)} />}
     </>
+  );
+}
+
+function ErrorToast({ message, onClose }) {
+  if (!message) return null;
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: 20,
+      right: 20,
+      backgroundColor: '#dc2626',
+      color: 'white',
+      padding: '12px 16px',
+      borderRadius: '6px',
+      fontSize: '14px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      zIndex: 2000,
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+    }}>
+      <IconAlertCircle size={16} />
+      {message}
+      <button onClick={onClose} style={{
+        background: 'none',
+        border: 'none',
+        color: 'white',
+        cursor: 'pointer',
+        padding: 4,
+        display: 'flex',
+      }}>
+        <IconX size={16} />
+      </button>
+    </div>
   );
 }
