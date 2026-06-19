@@ -18,6 +18,7 @@ import {
 } from '../data/labels.js';
 import { Badge, MetricCard, AvatarInitials, EmptyState, ContactDot } from '../components/shared.jsx';
 import LogInteractionModal from '../components/LogInteractionModal.jsx';
+import FormModal from '../components/FormModal.jsx';
 import { useDb } from '../data/store.jsx';
 import db from '../data/db.js';
 import { saveRecord } from '../data/backend.js';
@@ -55,134 +56,17 @@ function StaffForm({ contact, churchId, onSave, onCancel }) {
     { label: 'Notes', key: 'notes', type: 'textarea' },
   ];
 
+  const title = contact?.id ? 'Edit Staff' : 'Add Staff';
+
   return (
-    <div className="modal-overlay" onClick={onCancel} style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1001,
-    }}>
-      <div className="modal-content" onClick={e => e.stopPropagation()} style={{
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        width: '90%',
-        maxWidth: '600px',
-        maxHeight: '80vh',
-        overflow: 'auto',
-        boxShadow: '0 20px 25px rgba(0, 0, 0, 0.15)',
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '24px',
-          borderBottom: '1px solid var(--border)',
-        }}>
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
-            {contact?.id ? 'Edit' : 'Add'} Staff
-          </h2>
-          <button onClick={onCancel} style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 8,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--text-tertiary)',
-          }}>
-            <IconX stroke={1.5} size={20} />
-          </button>
-        </div>
-
-        <div style={{ padding: '24px' }}>
-          {fields.map(field => (
-            <div key={field.key} style={{ marginBottom: 16 }}>
-              <label style={{
-                display: 'block',
-                marginBottom: 6,
-                fontSize: '12px',
-                fontWeight: 600,
-                color: 'var(--text-secondary)',
-                textTransform: 'uppercase',
-              }}>
-                {field.label}
-                {field.required && <span style={{ color: 'var(--red-500)' }}>*</span>}
-              </label>
-              {field.type === 'textarea' ? (
-                <textarea
-                  value={formData[field.key] || ''}
-                  onChange={e => handleChange(field.key, e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid var(--border)',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontFamily: 'inherit',
-                    minHeight: '80px',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              ) : (
-                <input
-                  type={field.type || 'text'}
-                  value={formData[field.key] || ''}
-                  onChange={e => handleChange(field.key, e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid var(--border)',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    fontFamily: 'inherit',
-                    boxSizing: 'border-box',
-                  }}
-                />
-              )}
-            </div>
-          ))}
-        </div>
-
-        <div style={{
-          display: 'flex',
-          gap: 8,
-          padding: '24px',
-          borderTop: '1px solid var(--border)',
-          justifyContent: 'flex-end',
-        }}>
-          <button onClick={onCancel} style={{
-            padding: '8px 16px',
-            border: '1px solid var(--border)',
-            backgroundColor: 'transparent',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: 500,
-          }}>
-            Cancel
-          </button>
-          <button onClick={handleSave} style={{
-            padding: '8px 16px',
-            backgroundColor: 'var(--primary-500)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: 500,
-          }}>
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
+    <FormModal
+      title={title}
+      fields={fields}
+      formData={formData}
+      onChange={handleChange}
+      onSave={handleSave}
+      onCancel={onCancel}
+    />
   );
 }
 
@@ -213,242 +97,34 @@ function CongregantForm({ congregant, churchId, onSave, onCancel }) {
     refresh();
   };
 
+  const fields = [
+    { label: 'Full name', key: 'name', required: true, placeholder: 'e.g. John Smith' },
+    { label: 'Title / Role', key: 'title', placeholder: 'e.g. CEO, Smith Industries' },
+    {
+      label: 'Category',
+      key: 'category',
+      type: 'select',
+      options: Object.entries(CONGREGANT_CATEGORY).map(([k, v]) => ({
+        value: k,
+        label: v.label,
+      })),
+    },
+    { label: 'Email', key: 'email', type: 'email', placeholder: 'optional' },
+    { label: 'Phone', key: 'phone', placeholder: 'optional' },
+    { label: 'Notes', key: 'notes', type: 'textarea', placeholder: 'optional' },
+  ];
+
+  const title = congregant?.id ? 'Edit Congregant' : 'Add Congregant';
+
   return (
-    <div className="modal-overlay" onClick={onCancel} style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1001,
-    }}>
-      <div className="modal-content" onClick={e => e.stopPropagation()} style={{
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        width: '90%',
-        maxWidth: '600px',
-        maxHeight: '80vh',
-        overflow: 'auto',
-        boxShadow: '0 20px 25px rgba(0, 0, 0, 0.15)',
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '24px',
-          borderBottom: '1px solid var(--border)',
-        }}>
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
-            {congregant?.id ? 'Edit' : 'Add'} Congregant
-          </h2>
-          <button onClick={onCancel} style={{
-            background: 'none',
-            border: 'none',
-            cursor: 'pointer',
-            padding: 8,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'var(--text-tertiary)',
-          }}>
-            <IconX stroke={1.5} size={20} />
-          </button>
-        </div>
-
-        <div style={{ padding: '24px' }}>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{
-              display: 'block',
-              marginBottom: 6,
-              fontSize: '12px',
-              fontWeight: 600,
-              color: 'var(--text-secondary)',
-              textTransform: 'uppercase',
-            }}>
-              Full name <span style={{ color: 'var(--red-500)' }}>*</span>
-            </label>
-            <input
-              type="text"
-              value={formData.name || ''}
-              onChange={e => handleChange('name', e.target.value)}
-              placeholder="e.g. John Smith"
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--border)',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontFamily: 'inherit',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{
-              display: 'block',
-              marginBottom: 6,
-              fontSize: '12px',
-              fontWeight: 600,
-              color: 'var(--text-secondary)',
-              textTransform: 'uppercase',
-            }}>Title / Role</label>
-            <input
-              type="text"
-              value={formData.title || ''}
-              onChange={e => handleChange('title', e.target.value)}
-              placeholder="e.g. CEO, Smith Industries"
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--border)',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontFamily: 'inherit',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{
-              display: 'block',
-              marginBottom: 6,
-              fontSize: '12px',
-              fontWeight: 600,
-              color: 'var(--text-secondary)',
-              textTransform: 'uppercase',
-            }}>Category</label>
-            <select
-              value={formData.category || 'business'}
-              onChange={e => handleChange('category', e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--border)',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontFamily: 'inherit',
-                boxSizing: 'border-box',
-              }}
-            >
-              {Object.entries(CONGREGANT_CATEGORY).map(([k, v]) => (
-                <option key={k} value={k}>{v.label}</option>
-              ))}
-            </select>
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{
-              display: 'block',
-              marginBottom: 6,
-              fontSize: '12px',
-              fontWeight: 600,
-              color: 'var(--text-secondary)',
-              textTransform: 'uppercase',
-            }}>Email</label>
-            <input
-              type="email"
-              value={formData.email || ''}
-              onChange={e => handleChange('email', e.target.value)}
-              placeholder="optional"
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--border)',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontFamily: 'inherit',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{
-              display: 'block',
-              marginBottom: 6,
-              fontSize: '12px',
-              fontWeight: 600,
-              color: 'var(--text-secondary)',
-              textTransform: 'uppercase',
-            }}>Phone</label>
-            <input
-              type="text"
-              value={formData.phone || ''}
-              onChange={e => handleChange('phone', e.target.value)}
-              placeholder="optional"
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--border)',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontFamily: 'inherit',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
-          <div style={{ marginBottom: 16 }}>
-            <label style={{
-              display: 'block',
-              marginBottom: 6,
-              fontSize: '12px',
-              fontWeight: 600,
-              color: 'var(--text-secondary)',
-              textTransform: 'uppercase',
-            }}>Notes</label>
-            <textarea
-              value={formData.notes || ''}
-              onChange={e => handleChange('notes', e.target.value)}
-              placeholder="optional"
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--border)',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontFamily: 'inherit',
-                minHeight: '60px',
-                boxSizing: 'border-box',
-              }}
-            />
-          </div>
-        </div>
-
-        <div style={{
-          display: 'flex',
-          gap: 8,
-          padding: '24px',
-          borderTop: '1px solid var(--border)',
-          justifyContent: 'flex-end',
-        }}>
-          <button onClick={onCancel} style={{
-            padding: '8px 16px',
-            border: '1px solid var(--border)',
-            backgroundColor: 'transparent',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: 500,
-          }}>
-            Cancel
-          </button>
-          <button onClick={handleSave} style={{
-            padding: '8px 16px',
-            backgroundColor: 'var(--primary-500)',
-            color: 'white',
-            border: 'none',
-            borderRadius: '6px',
-            cursor: 'pointer',
-            fontSize: '14px',
-            fontWeight: 500,
-          }}>
-            Save
-          </button>
-        </div>
-      </div>
-    </div>
+    <FormModal
+      title={title}
+      fields={fields}
+      formData={formData}
+      onChange={handleChange}
+      onSave={handleSave}
+      onCancel={onCancel}
+    />
   );
 }
 
