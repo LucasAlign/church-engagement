@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { IconLayoutGrid, IconList, IconAdjustmentsHorizontal, IconPlus, IconBuildingChurch, IconFileSpreadsheet, IconEdit, IconX } from '@tabler/icons-react';
+import { IconLayoutGrid, IconList, IconAdjustmentsHorizontal, IconPlus, IconBuildingChurch, IconFileSpreadsheet, IconEdit, IconX, IconAlertCircle, IconLoader } from '@tabler/icons-react';
 import db from '../data/db.js';
 import { getContactsByChurch, getUserById, contactStatus } from '../data/helpers.js';
 import { ENGAGEMENT_STATUS, fmtDate } from '../data/labels.js';
@@ -8,6 +8,7 @@ import { Header } from '../components/layout.jsx';
 import { Badge, SearchBar, FilterPills, AvatarInitials, EmptyState, ContactDot } from '../components/shared.jsx';
 import { saveRecord } from '../data/backend.js';
 import FormModal from '../components/FormModal.jsx';
+import { validateChurch } from '../data/validation.js';
 
 const STATUS_FILTERS = [
   { value: 'all', label: 'All statuses' },
@@ -23,37 +24,56 @@ function attendanceRange(c) {
 
 function ChurchForm({ church, onSave, onCancel }) {
   const [formData, setFormData] = useState(church || {});
+  const [errors, setErrors] = useState({});
+  const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
+    if (errors[field]) {
+      setErrors(prev => ({ ...prev, [field]: '' }));
+    }
   };
 
-  const handleSave = () => {
-    if (!formData.id) {
-      formData.id = `ch_${Date.now()}`;
+  const handleSave = async () => {
+    const validation = validateChurch(formData);
+    if (!validation.isValid) {
+      setErrors(validation.errors);
+      return;
     }
-    const existing = db.churches.findIndex(c => c.id === formData.id);
-    if (existing >= 0) {
-      db.churches[existing] = formData;
-    } else {
-      db.churches.push(formData);
+
+    setLoading(true);
+    try {
+      if (!formData.id) {
+        formData.id = `ch_${Date.now()}`;
+      }
+      const existing = db.churches.findIndex(c => c.id === formData.id);
+      if (existing >= 0) {
+        db.churches[existing] = formData;
+      } else {
+        db.churches.push(formData);
+      }
+      saveRecord('churches', formData);
+      onSave();
+    } catch (err) {
+      setErrorMessage('Failed to save church. Please try again.');
+    } finally {
+      setLoading(false);
     }
-    saveRecord('churches', formData);
-    onSave();
   };
 
   const fields = [
-    { label: 'Name', key: 'name', required: true },
+    { label: 'Name', key: 'name', required: true, error: errors.name },
     { label: 'Address', key: 'address' },
     { label: 'City', key: 'city' },
     { label: 'State', key: 'state' },
     { label: 'Zip', key: 'zip' },
     { label: 'Phone', key: 'phone' },
-    { label: 'Email', key: 'email', type: 'email' },
-    { label: 'Website', key: 'website' },
+    { label: 'Email', key: 'email', type: 'email', error: errors.email },
+    { label: 'Website', key: 'website', error: errors.website },
     { label: 'Denomination', key: 'denomination' },
-    { label: 'Min Attendance', key: 'attendanceMin', type: 'number' },
-    { label: 'Max Attendance', key: 'attendanceMax', type: 'number' },
+    { label: 'Min Attendance', key: 'attendanceMin', type: 'number', error: errors.attendanceMin },
+    { label: 'Max Attendance', key: 'attendanceMax', type: 'number', error: errors.attendanceMax },
     { label: 'Engagement Status', key: 'engagementStatus' },
     { label: 'Assigned Coordinator ID', key: 'assignedCoordinatorId' },
     { label: 'Notes', key: 'notes', type: 'textarea' },
@@ -62,14 +82,52 @@ function ChurchForm({ church, onSave, onCancel }) {
   const title = church?.id ? 'Edit Church' : 'Add Church';
 
   return (
-    <FormModal
-      title={title}
-      fields={fields}
-      formData={formData}
-      onChange={handleChange}
-      onSave={handleSave}
-      onCancel={onCancel}
-    />
+    <>
+      <FormModal
+        title={title}
+        fields={fields}
+        formData={formData}
+        onChange={handleChange}
+        onSave={handleSave}
+        onCancel={onCancel}
+        loading={loading}
+      />
+      <ErrorToast message={errorMessage} onClose={() => setErrorMessage('')} />
+    </>
+  );
+}
+
+function ErrorToast({ message, onClose }) {
+  if (!message) return null;
+  return (
+    <div style={{
+      position: 'fixed',
+      bottom: 20,
+      right: 20,
+      backgroundColor: '#dc2626',
+      color: 'white',
+      padding: '12px 16px',
+      borderRadius: '6px',
+      fontSize: '14px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: 8,
+      zIndex: 2000,
+      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+    }}>
+      <IconAlertCircle size={16} />
+      {message}
+      <button onClick={onClose} style={{
+        background: 'none',
+        border: 'none',
+        color: 'white',
+        cursor: 'pointer',
+        padding: 4,
+        display: 'flex',
+      }}>
+        <IconX size={16} />
+      </button>
+    </div>
   );
 }
 
