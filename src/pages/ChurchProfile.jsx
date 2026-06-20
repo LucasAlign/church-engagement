@@ -66,8 +66,9 @@ function OverviewTab({ church }) {
 function StaffTab({ church }) {
   const { refresh } = useDb();
   const [editingContact, setEditingContact] = useState(null);
+  const [isAdding, setIsAdding] = useState(false);
   const contacts = getContactsByChurch(church.id);
-  if (!contacts.length) {
+  if (!contacts.length && !isAdding) {
     return (
       <div className="card">
         <EmptyState icon={IconUserCircle} title="No staff contacts yet" sub="Add the first staff member for this church." />
@@ -77,7 +78,7 @@ function StaffTab({ church }) {
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button className="btn"><IconPlus stroke={2} /> Add staff</button>
+        <button className="btn" onClick={() => setIsAdding(true)}><IconPlus stroke={2} /> Add staff</button>
       </div>
       <div className="people-grid">
         {contacts.map(p => {
@@ -109,14 +110,19 @@ function StaffTab({ church }) {
           );
         })}
       </div>
-      {editingContact && (
+      {(editingContact || isAdding) && (
         <StaffForm
+          churchId={church.id}
           contact={editingContact}
           onSave={() => {
             setEditingContact(null);
+            setIsAdding(false);
             refresh();
           }}
-          onCancel={() => setEditingContact(null)}
+          onCancel={() => {
+            setEditingContact(null);
+            setIsAdding(false);
+          }}
         />
       )}
     </>
@@ -450,8 +456,8 @@ function TasksTab({ church }) {
   );
 }
 
-function StaffForm({ contact, onSave, onCancel }) {
-  const [formData, setFormData] = useState(contact || {});
+function StaffForm({ churchId, contact, onSave, onCancel }) {
+  const [formData, setFormData] = useState(contact || { churchId, kfaRole: 'none', preferredContact: 'email' });
   const [loading, setLoading] = useState(false);
 
   const handleChange = (field, value) => {
@@ -459,12 +465,23 @@ function StaffForm({ contact, onSave, onCancel }) {
   };
 
   const handleSave = async () => {
+    if (!formData.name || !formData.name.trim()) return;
     setLoading(true);
     try {
-      const existing = db.contacts.findIndex(c => c.id === formData.id);
-      if (existing >= 0) {
-        db.contacts[existing] = formData;
-        saveRecord('contacts', formData);
+      if (contact && contact.id) {
+        const existing = db.contacts.findIndex(c => c.id === formData.id);
+        if (existing >= 0) {
+          db.contacts[existing] = formData;
+          saveRecord('contacts', formData);
+        }
+      } else {
+        const newContact = {
+          id: `con_${Date.now()}`,
+          churchId,
+          ...formData,
+        };
+        db.contacts.push(newContact);
+        saveRecord('contacts', newContact);
       }
       onSave();
     } finally {
@@ -482,7 +499,7 @@ function StaffForm({ contact, onSave, onCancel }) {
 
   return (
     <FormModal
-      title="Edit Staff Member"
+      title={contact ? 'Edit Staff Member' : 'Add Staff Member'}
       fields={fields}
       formData={formData}
       onChange={handleChange}
