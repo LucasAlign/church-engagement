@@ -68,48 +68,47 @@ function StaffTab({ church }) {
   const [editingContact, setEditingContact] = useState(null);
   const [isAdding, setIsAdding] = useState(false);
   const contacts = getContactsByChurch(church.id);
-  if (!contacts.length && !isAdding) {
-    return (
-      <div className="card">
-        <EmptyState icon={IconUserCircle} title="No staff contacts yet" sub="Add the first staff member for this church." />
-      </div>
-    );
-  }
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
         <button className="btn" onClick={() => setIsAdding(true)}><IconPlus stroke={2} /> Add staff</button>
       </div>
-      <div className="people-grid">
-        {contacts.map(p => {
-          const role = KFA_ROLE[p.kfaRole] || KFA_ROLE.none;
-          const lastDate = getLastContactForContact(p.id);
-          const status = contactStatus(lastDate);
-          return (
-            <div className="card person-card" key={p.id}>
-              <div className="pc-head">
-                <AvatarInitials name={p.name} size="md" />
-                <div style={{ flex: 1 }}>
-                  <div className="pc-name" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                    <ContactDot status={status} date={lastDate} />
-                    {p.name}
+      {contacts.length === 0 ? (
+        <div className="card">
+          <EmptyState icon={IconUserCircle} title="No staff contacts yet" sub="Add the first staff member for this church." />
+        </div>
+      ) : (
+        <div className="people-grid">
+          {contacts.map(p => {
+            const role = KFA_ROLE[p.kfaRole] || KFA_ROLE.none;
+            const lastDate = getLastContactForContact(p.id);
+            const status = contactStatus(lastDate);
+            return (
+              <div className="card person-card" key={p.id}>
+                <div className="pc-head">
+                  <AvatarInitials name={p.name} size="md" />
+                  <div style={{ flex: 1 }}>
+                    <div className="pc-name" style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                      <ContactDot status={status} date={lastDate} />
+                      {p.name}
+                    </div>
+                    <div className="pc-role">{p.position}</div>
                   </div>
-                  <div className="pc-role">{p.position}</div>
+                  <Badge label={role.label} variant={role.variant} />
                 </div>
-                <Badge label={role.label} variant={role.variant} />
+                <div className="pc-contact">
+                  {p.email && <span><IconMail stroke={1.75} /> {p.email}</span>}
+                  {p.phone && <span><IconPhone stroke={1.75} /> {p.phone}</span>}
+                  <span className="text-secondary">{PREFERRED_CONTACT[p.preferredContact]}{p.notes ? ` · ${p.notes}` : ''}</span>
+                </div>
+                <div className="pc-actions">
+                  <button className="btn sm" onClick={() => setEditingContact(p)}><IconPencil stroke={1.75} /> Edit</button>
+                </div>
               </div>
-              <div className="pc-contact">
-                {p.email && <span><IconMail stroke={1.75} /> {p.email}</span>}
-                {p.phone && <span><IconPhone stroke={1.75} /> {p.phone}</span>}
-                <span className="text-secondary">{PREFERRED_CONTACT[p.preferredContact]}{p.notes ? ` · ${p.notes}` : ''}</span>
-              </div>
-              <div className="pc-actions">
-                <button className="btn sm" onClick={() => setEditingContact(p)}><IconPencil stroke={1.75} /> Edit</button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
+            );
+          })}
+        </div>
+      )}
       {(editingContact || isAdding) && (
         <StaffForm
           churchId={church.id}
