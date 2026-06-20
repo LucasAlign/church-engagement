@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   IconSearch, IconMapPin, IconChevronRight, IconRefresh, IconX,
-  IconUsers, IconBuildingChurch, IconHeartHandshake,
+  IconBuildingChurch, IconHeartHandshake,
   IconCheckbox, IconAlertCircle, IconPray, IconPhone, IconMail, IconEdit, IconPlus,
 } from '@tabler/icons-react';
 import db from '../data/db.js';
@@ -577,22 +577,6 @@ function DatabaseWidget() {
               style={{ padding: '6px 12px' }}
             >
               <IconBuildingChurch stroke={1.75} size={16} />
-            </button>
-            <button
-              className="btn sm"
-              onClick={() => setAddingType('contact')}
-              title="Add pastor/staff"
-              style={{ padding: '6px 12px' }}
-            >
-              <IconUsers stroke={1.75} size={16} />
-            </button>
-            <button
-              className="btn sm"
-              onClick={() => setAddingType('congregant')}
-              title="Add congregant"
-              style={{ padding: '6px 12px' }}
-            >
-              <IconHeartHandshake stroke={1.75} size={16} />
             </button>
           </div>
         </div>

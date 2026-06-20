@@ -9,6 +9,7 @@ function renderField(field, value, onChange) {
     value: value ?? '',
     onChange: e => onChange(field.key, e.target.value),
     placeholder: field.placeholder,
+    disabled: field.disabled,
   };
   if (field.type === 'textarea') {
     return <textarea {...common} rows={field.rows || 3} />;

@@ -113,6 +113,7 @@ function StaffTab({ church }) {
       {(editingContact || isAdding) && (
         <StaffForm
           churchId={church.id}
+          churchName={church.name}
           contact={editingContact}
           onSave={() => {
             setEditingContact(null);
@@ -156,6 +157,10 @@ function NotableCongregrantsTab({ church }) {
       {adding && (
         <div className="card card-pad" style={{ marginBottom: 14 }}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div className="field" style={{ gridColumn: '1 / -1' }}>
+              <label className="field-label">Church</label>
+              <input className="select" value={church.name} disabled readOnly />
+            </div>
             <div className="field">
               <label className="field-label">Full name *</label>
               <input className="select" value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. John Smith" />
@@ -456,7 +461,7 @@ function TasksTab({ church }) {
   );
 }
 
-function StaffForm({ churchId, contact, onSave, onCancel }) {
+function StaffForm({ churchId, churchName, contact, onSave, onCancel }) {
   const [formData, setFormData] = useState(contact || { churchId, kfaRole: 'none', preferredContact: 'email' });
   const [loading, setLoading] = useState(false);
 
@@ -490,6 +495,7 @@ function StaffForm({ churchId, contact, onSave, onCancel }) {
   };
 
   const fields = [
+    { label: 'Church', key: '_churchName', disabled: true },
     { label: 'Name', key: 'name', required: true },
     { label: 'Position', key: 'position' },
     { label: 'Email', key: 'email', type: 'email' },
@@ -501,7 +507,7 @@ function StaffForm({ churchId, contact, onSave, onCancel }) {
     <FormModal
       title={contact ? 'Edit Staff Member' : 'Add Staff Member'}
       fields={fields}
-      formData={formData}
+      formData={{ ...formData, _churchName: churchName }}
       onChange={handleChange}
       onSave={handleSave}
       onCancel={onCancel}
