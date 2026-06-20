@@ -715,7 +715,7 @@ export default function Dashboard() {
   return (
     <div>
       <div className="overview-topbar">
-        <button className="btn sm">
+        <button className="btn sm" onClick={() => window.location.reload()}>
           <IconRefresh stroke={1.75} />
           Reset layout
         </button>

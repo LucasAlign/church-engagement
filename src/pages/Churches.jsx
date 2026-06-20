@@ -24,6 +24,7 @@ export default function Churches() {
   const [query, setQuery] = useState('');
   const [status, setStatus] = useState('all');
   const [view, setView] = useState('table');
+  const [showMoreFilters, setShowMoreFilters] = useState(false);
 
   const churches = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -43,7 +44,7 @@ export default function Churches() {
         actions={
           <div style={{ display: 'flex', gap: 8 }}>
             <button className="btn sm" onClick={() => navigate('/import')}><IconFileSpreadsheet stroke={1.75} /> Import CSV</button>
-            <button className="btn primary"><IconPlus stroke={2} /> Add church</button>
+            <button className="btn primary" onClick={() => navigate('/churches/new')}><IconPlus stroke={2} /> Add church</button>
           </div>
         }
       />
@@ -54,7 +55,7 @@ export default function Churches() {
       </div>
       <div className="toolbar">
         <FilterPills options={STATUS_FILTERS} active={status} onChange={setStatus} />
-        <button className="btn sm"><IconAdjustmentsHorizontal stroke={1.75} /> More filters</button>
+        <button className="btn sm" onClick={() => setShowMoreFilters(!showMoreFilters)}><IconAdjustmentsHorizontal stroke={1.75} /> More filters</button>
         <span style={{ marginLeft: 'auto', display: 'flex', gap: 4 }}>
           <button className={`btn sm ${view === 'table' ? 'primary' : ''}`} onClick={() => setView('table')} aria-label="Table view"><IconList stroke={1.75} /></button>
           <button className={`btn sm ${view === 'cards' ? 'primary' : ''}`} onClick={() => setView('cards')} aria-label="Card view"><IconLayoutGrid stroke={1.75} /></button>
