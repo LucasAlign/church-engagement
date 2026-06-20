@@ -87,7 +87,7 @@ function StaffForm({ contact, churchId, onSave, onCancel }) {
         onChange={handleChange}
         onSave={handleSave}
         onCancel={onCancel}
-        loading={loading}
+        isLoading={loading}
       />
       <ErrorToast message={errorMessage} onClose={() => setErrorMessage('')} />
     </>
@@ -166,7 +166,7 @@ function CongregantForm({ congregant, churchId, onSave, onCancel }) {
         onChange={handleChange}
         onSave={handleSave}
         onCancel={onCancel}
-        loading={loading}
+        isLoading={loading}
       />
       <ErrorToast message={errorMessage} onClose={() => setErrorMessage('')} />
     </>

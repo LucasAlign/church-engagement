@@ -70,6 +70,15 @@ export function FilterPills({ options, active, onChange }) {
 }
 
 export function CSSBarChart({ data, color = 'blue', format = v => v }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="bar-chart">
+        <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
+          No data available
+        </div>
+      </div>
+    );
+  }
   const max = Math.max(...data.map(d => d.value), 1);
   return (
     <div className="bar-chart">

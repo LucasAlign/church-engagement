@@ -212,6 +212,11 @@ let _dbListeners = [];
 function notifyDb() { _dbListeners.forEach(fn => fn()); }
 export function subscribeDb(fn) { _dbListeners.push(fn); return () => { _dbListeners = _dbListeners.filter(f => f !== fn); }; }
 
+// ID generator for new records (prefix-based)
+export function genId(prefix) {
+  return `${prefix}_${++seq}`;
+}
+
 export function addContact({ churchId, name, position, email, phone, kfaRole, preferredContact, notes }) {
   const id = `con_${++seq}`;
   db.contacts.push({ id, churchId, name, title: position || '', role: 'staff', kfaRole: kfaRole || null, email: email || null, phone: phone || null, archived: false, createdAt: TODAY });

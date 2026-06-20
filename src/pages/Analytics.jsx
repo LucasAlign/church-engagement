@@ -2,7 +2,7 @@ import db from '../data/db.js';
 import { PIPELINE_STAGES, getPipelineCounts } from '../data/helpers.js';
 import { ENGAGEMENT_STATUS, INTERACTION_TYPE, MINISTRY_TYPE, fmtMoney } from '../data/labels.js';
 import { Header } from '../components/layout.jsx';
-import { CSSBarChart } from '../components/shared.jsx';
+import { CSSBarChart, EmptyState } from '../components/shared.jsx';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const STAGE_COLORS = {
@@ -31,6 +31,7 @@ function ChartCard({ title, children }) {
 
 export default function Analytics() {
   const pipeline = getPipelineCounts();
+  const hasData = db.churches.length > 0;
 
   const ministryCounts = countBy(
     db.ministryEngagements.filter(m => m.status === 'active'),
@@ -48,7 +49,7 @@ export default function Analytics() {
   const monthCount = 6; // Jan–Jun 2026
   const newByMonth = MONTHS.slice(0, monthCount).map((label, idx) => ({
     label: `${label} 2026`,
-    value: db.churches.filter(c => c.firstContactDate.startsWith(`2026-${String(idx + 1).padStart(2, '0')}`)).length,
+    value: db.churches.filter(c => c.firstContactDate && c.firstContactDate.startsWith(`2026-${String(idx + 1).padStart(2, '0')}`)).length,
   }));
 
   const givingByMonth = MONTHS.slice(0, monthCount).map((label, idx) => ({
@@ -62,6 +63,18 @@ export default function Analytics() {
   const typeData = Object.entries(typeCounts)
     .sort((a, b) => b[1] - a[1])
     .map(([key, value]) => ({ label: INTERACTION_TYPE[key].label, value }));
+
+  if (!hasData) {
+    return (
+      <>
+        <Header title="Analytics" subtitle="Berks County — aggregate engagement metrics" />
+        <EmptyState
+          title="No data yet"
+          sub="Import church data or create churches manually to see analytics."
+        />
+      </>
+    );
+  }
 
   return (
     <>
