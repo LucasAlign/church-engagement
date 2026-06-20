@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useNavigate } from 'react-router-dom';
 import {
   IconMapPin, IconUsers, IconCalendar, IconUserCircle, IconMail, IconPhone,
   IconPlus, IconPencil, IconPinned, IconLock, IconArchive, IconBuildingChurch,
@@ -17,8 +17,11 @@ import {
   CONGREGANT_CATEGORY, fmtDate, fmtMoney,
 } from '../data/labels.js';
 import { Badge, MetricCard, AvatarInitials, EmptyState, ContactDot } from '../components/shared.jsx';
+import FormModal from '../components/FormModal.jsx';
 import LogInteractionModal from '../components/LogInteractionModal.jsx';
 import { useDb } from '../data/store.jsx';
+import db from '../data/db.js';
+import { saveRecord } from '../data/backend.js';
 
 const TABS = ['Overview', 'Staff', 'Notable Congregants', 'Timeline', 'Ministry', 'Giving', 'Notes', 'Tasks'];
 
@@ -61,6 +64,8 @@ function OverviewTab({ church }) {
 }
 
 function StaffTab({ church }) {
+  const { refresh } = useDb();
+  const [editingContact, setEditingContact] = useState(null);
   const contacts = getContactsByChurch(church.id);
   if (!contacts.length) {
     return (
@@ -98,13 +103,22 @@ function StaffTab({ church }) {
                 <span className="text-secondary">{PREFERRED_CONTACT[p.preferredContact]}{p.notes ? ` · ${p.notes}` : ''}</span>
               </div>
               <div className="pc-actions">
-                <button className="btn sm"><IconPencil stroke={1.75} /> Edit</button>
-                <button className="btn sm"><IconArchive stroke={1.75} /> Archive</button>
+                <button className="btn sm" onClick={() => setEditingContact(p)}><IconPencil stroke={1.75} /> Edit</button>
               </div>
             </div>
           );
         })}
       </div>
+      {editingContact && (
+        <StaffForm
+          contact={editingContact}
+          onSave={() => {
+            setEditingContact(null);
+            refresh();
+          }}
+          onCancel={() => setEditingContact(null)}
+        />
+      )}
     </>
   );
 }
@@ -436,11 +450,56 @@ function TasksTab({ church }) {
   );
 }
 
+function StaffForm({ contact, onSave, onCancel }) {
+  const [formData, setFormData] = useState(contact || {});
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const existing = db.contacts.findIndex(c => c.id === formData.id);
+      if (existing >= 0) {
+        db.contacts[existing] = formData;
+        saveRecord('contacts', formData);
+      }
+      onSave();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fields = [
+    { label: 'Name', key: 'name', required: true },
+    { label: 'Position', key: 'position' },
+    { label: 'Email', key: 'email', type: 'email' },
+    { label: 'Phone', key: 'phone' },
+    { label: 'Notes', key: 'notes', type: 'textarea' },
+  ];
+
+  return (
+    <FormModal
+      title="Edit Staff Member"
+      fields={fields}
+      formData={formData}
+      onChange={handleChange}
+      onSave={handleSave}
+      onCancel={onCancel}
+      isLoading={loading}
+    />
+  );
+}
+
 export default function ChurchProfile() {
+  const navigate = useNavigate();
   useDb();
   const { id } = useParams();
   const [tab, setTab] = useState('Overview');
   const [logging, setLogging] = useState(false);
+  const [editingChurch, setEditingChurch] = useState(false);
   const church = getChurchById(id);
 
   if (!church) {
@@ -479,7 +538,7 @@ export default function ChurchProfile() {
           </div>
         </div>
         <div className="page-actions">
-          <button className="btn"><IconPencil stroke={1.75} /> Edit</button>
+          <button className="btn" onClick={() => setEditingChurch(church)} title="Edit church details"><IconPencil stroke={1.75} /> Edit</button>
           <button className="btn primary" onClick={() => setLogging(true)}><IconPlus stroke={2} /> Log interaction</button>
         </div>
       </div>
@@ -497,6 +556,66 @@ export default function ChurchProfile() {
       {tab === 'Notes' && <NotesTab church={church} />}
       {tab === 'Tasks' && <TasksTab church={church} />}
       {logging && <LogInteractionModal churchId={church.id} onClose={() => setLogging(false)} />}
+      {editingChurch && (
+        <ChurchEditForm
+          church={church}
+          onSave={() => {
+            setEditingChurch(false);
+          }}
+          onCancel={() => setEditingChurch(false)}
+        />
+      )}
     </>
+  );
+}
+
+function ChurchEditForm({ church, onSave, onCancel }) {
+  const [formData, setFormData] = useState(church || {});
+  const [loading, setLoading] = useState(false);
+
+  const handleChange = (field, value) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
+
+  const handleSave = async () => {
+    setLoading(true);
+    try {
+      const existing = db.churches.findIndex(c => c.id === formData.id);
+      if (existing >= 0) {
+        db.churches[existing] = formData;
+        saveRecord('churches', formData);
+      }
+      onSave();
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fields = [
+    { label: 'Name', key: 'name', required: true },
+    { label: 'Address', key: 'address' },
+    { label: 'City', key: 'city' },
+    { label: 'State', key: 'state' },
+    { label: 'Zip', key: 'zip' },
+    { label: 'Phone', key: 'phone' },
+    { label: 'Email', key: 'email', type: 'email' },
+    { label: 'Website', key: 'website' },
+    { label: 'Denomination', key: 'denomination' },
+    { label: 'Min Attendance', key: 'attendanceMin', type: 'number' },
+    { label: 'Max Attendance', key: 'attendanceMax', type: 'number' },
+    { label: 'Engagement Status', key: 'engagementStatus' },
+    { label: 'Notes', key: 'notes', type: 'textarea' },
+  ];
+
+  return (
+    <FormModal
+      title="Edit Church"
+      fields={fields}
+      formData={formData}
+      onChange={handleChange}
+      onSave={handleSave}
+      onCancel={onCancel}
+      isLoading={loading}
+    />
   );
 }
