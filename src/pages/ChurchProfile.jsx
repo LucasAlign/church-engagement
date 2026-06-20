@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Link, useParams, useNavigate } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import {
   IconMapPin, IconUsers, IconCalendar, IconUserCircle, IconMail, IconPhone,
-  IconPlus, IconPencil, IconPinned, IconLock, IconArchive, IconBuildingChurch,
+  IconPlus, IconPencil, IconPinned, IconBuildingChurch,
 } from '@tabler/icons-react';
 import {
   getChurchById, getContactsByChurch, getInteractionsByChurch, getTasksByChurch,
@@ -494,7 +494,6 @@ function StaffForm({ contact, onSave, onCancel }) {
 }
 
 export default function ChurchProfile() {
-  const navigate = useNavigate();
   useDb();
   const { id } = useParams();
   const [tab, setTab] = useState('Overview');
