@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   IconMapPin, IconUsers, IconCalendar, IconUserCircle, IconMail, IconPhone,
   IconPlus, IconPencil, IconPinned, IconLock, IconArchive, IconBuildingChurch,
+  IconSparkles,
 } from '@tabler/icons-react';
+import { summarizeChurch } from '../ai/arlo.js';
 import {
   getChurchById, getContactsByChurch, getInteractionsByChurch, getTasksByChurch,
   getNotesByChurch, getMinistryByChurch, getChurchGivingSummary, getUserById,
@@ -19,6 +21,23 @@ import LogInteractionModal from '../components/LogInteractionModal.jsx';
 import { useDb } from '../data/store.jsx';
 
 const TABS = ['Overview', 'People', 'Timeline', 'Ministry', 'Giving', 'Notes', 'Tasks'];
+
+// One-line status read from Arlo (Haiku), refreshed when the church changes.
+function ArloSummary({ churchId }) {
+  const [text, setText] = useState('');
+  useEffect(() => {
+    let live = true;
+    setText('');
+    summarizeChurch({ churchId }).then(r => { if (live) setText(r.text); });
+    return () => { live = false; };
+  }, [churchId]);
+  return (
+    <div className="arlo-summary">
+      <IconSparkles stroke={1.75} />
+      <span>{text || 'Arlo is reading this church…'}</span>
+    </div>
+  );
+}
 
 function OverviewTab({ church }) {
   const giving = getChurchGivingSummary(church.id);
@@ -368,6 +387,7 @@ export default function ChurchProfile() {
           <button className="btn primary" onClick={() => setLogging(true)}><IconPlus stroke={2} /> Log interaction</button>
         </div>
       </div>
+      <ArloSummary churchId={church.id} />
       <div className="tab-nav">
         {TABS.map(t => (
           <button key={t} className={`tab-btn ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>{t}</button>
