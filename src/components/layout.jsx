@@ -13,6 +13,7 @@ import {
 import { getOverdueTaskCount, getUserById } from '../data/helpers.js';
 import { useDb } from '../data/store.jsx';
 import { AvatarInitials } from './shared.jsx';
+import ArloDrawer from './ArloDrawer.jsx';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Dashboard', icon: IconLayoutDashboard, end: true },
@@ -79,6 +80,7 @@ export function AppShell({ children }) {
       <main className="main">
         <div className="page">{children}</div>
       </main>
+      <ArloDrawer />
     </div>
   );
 }
