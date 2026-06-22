@@ -9,8 +9,8 @@ import { INTERACTION_TYPE, fmtDate, fmtMoney } from '../data/labels.js';
 
 // Friendly model names for the routing hint shown in the drawer.
 export const MODEL_LABELS = {
-  [MODELS.HAIKU]: 'Haiku 4.5',
-  [MODELS.OPUS]: 'Opus 4.8',
+  [MODELS.FAST]: 'GPT-4o mini',
+  [MODELS.SMART]: 'GPT-4o',
 };
 
 // --- 1. Smart interaction capture (Haiku) ----------------------------------
@@ -30,13 +30,14 @@ const TYPE_HINTS = [
 const FOLLOWUP_HINTS = /\b(follow up|follow-up|circle back|next week|send (her|him|them|over)|schedule|call back|get back to|will email|set up)\b/i;
 
 export function captureInteraction({ rawText, churchId }) {
-  const model = MODELS.HAIKU;
+  const model = MODELS.FAST;
   const system = 'You turn a coordinator\'s freeform note into a structured interaction record. '
     + 'Pick the single best interaction type, keep the notes clean and factual, and suggest a '
     + 'follow-up task only if the note clearly implies one.';
   return callModel({
     model,
     system,
+    local: true, // capture stays rule-based — no need to spend a model call to parse a note
     messages: [{ role: 'user', content: rawText }],
     stub: () => {
       const text = (rawText || '').trim();
@@ -54,7 +55,7 @@ export function captureInteraction({ rawText, churchId }) {
 // --- 2. Summarize a church (Haiku) -----------------------------------------
 export function summarizeChurch({ churchId }) {
   const ctx = churchContext(churchId);
-  const model = MODELS.HAIKU;
+  const model = MODELS.FAST;
   const system = 'You write a 2–3 sentence status summary of a partner church for a relationship '
     + 'coordinator: where the relationship stands, momentum, and the most useful next move.';
   return callModel({
@@ -91,7 +92,7 @@ export function summarizeChurch({ churchId }) {
 // --- 3. Daily brief (Haiku) ------------------------------------------------
 export function dailyBrief() {
   const tasks = todayTasks();
-  const model = MODELS.HAIKU;
+  const model = MODELS.FAST;
   const system = 'You produce a short, prioritized daily call list for a relationship coordinator '
     + 'from their open and overdue tasks. Lead with what is overdue.';
   return callModel({
@@ -126,7 +127,7 @@ function firstName(name) {
 export function draftFollowUp({ churchId }) {
   const ctx = churchContext(churchId);
   const contact = primaryContact(churchId);
-  const model = MODELS.HAIKU;
+  const model = MODELS.FAST;
   const system = 'You draft a short, warm, specific follow-up for a church relationship '
     + 'coordinator — an email or a call script depending on the contact\'s preference. '
     + 'Reference where the relationship stands and propose one clear next step.';
@@ -188,7 +189,7 @@ const FOCUS = [
 
 export function coach({ question }) {
   const ctx = portfolioContext();
-  const model = MODELS.OPUS;
+  const model = MODELS.SMART;
   const system = 'You are a coaching partner for a church relationship coordinator. Reason across '
     + 'their whole portfolio to find where momentum is slipping, where giving is softening, and '
     + 'where work is piling up — then recommend two or three concrete plays. Be specific and brief.';

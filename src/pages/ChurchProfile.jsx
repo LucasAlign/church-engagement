@@ -581,7 +581,9 @@ function KarenSummary({ churchId }) {
   useEffect(() => {
     let live = true;
     setText('');
-    summarizeChurch({ churchId }).then(r => { if (live) setText(r.text); });
+    summarizeChurch({ churchId })
+      .then(r => { if (live) setText(r.text); })
+      .catch(() => { if (live) setText('Summary unavailable right now.'); });
     return () => { live = false; };
   }, [churchId]);
   return (

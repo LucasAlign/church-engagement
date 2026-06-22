@@ -13,8 +13,8 @@
 // Routing is decided per-action in karen.js and passed through here, so the
 // coordinator never picks a model — the surface does.
 export const MODELS = {
-  HAIKU: 'claude-haiku-4-5', // frequent, scoped work: capture, summaries, brief, drafts
-  OPUS: 'claude-opus-4-8',   // cross-church judgement: portfolio coaching
+  FAST: 'gpt-4o-mini', // frequent, scoped work: capture, summaries, brief, drafts
+  SMART: 'gpt-4o',     // cross-church judgement: portfolio coaching
 };
 
 const ENDPOINT = import.meta.env?.VITE_KAREN_ENDPOINT;
@@ -24,10 +24,10 @@ const ENDPOINT = import.meta.env?.VITE_KAREN_ENDPOINT;
 //   system   — system prompt (sent to the endpoint when one is configured)
 //   messages — [{ role, content }] (sent to the endpoint)
 //   stub     — () => result, used until the endpoint is wired up
-export async function callModel({ model, system, messages, stub }) {
-  if (!ENDPOINT) {
-    // Key-free deterministic path. Kept async so callers already await it and
-    // nothing changes when the real call lands.
+export async function callModel({ model, system, messages, stub, local }) {
+  // `local: true` forces the deterministic stub even when the endpoint is live
+  // (used for interaction capture — a rule-based parse, no need to spend a call).
+  if (local || !ENDPOINT) {
     return stub();
   }
 

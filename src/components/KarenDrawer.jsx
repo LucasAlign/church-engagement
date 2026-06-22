@@ -89,6 +89,8 @@ export default function KarenDrawer() {
     try {
       const res = await action();
       addEntry({ title, model: res.model, body: res.text, copyable: opts.copyable });
+    } catch (err) {
+      addEntry({ title, body: `Couldn't reach the model — ${err.message}` });
     } finally {
       setBusy(false);
     }
@@ -157,7 +159,7 @@ export default function KarenDrawer() {
           <div className="karen-header">
             <div className="karen-title">
               <IconSparkles stroke={1.75} /> Karen
-              <span className="karen-hint">Haiku 4.5 · Opus 4.8</span>
+              <span className="karen-hint">GPT-4o mini · GPT-4o</span>
             </div>
             <button className="icon-btn" onClick={() => setOpen(false)} aria-label="Close"><IconX /></button>
           </div>
