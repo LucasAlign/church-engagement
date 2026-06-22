@@ -8,7 +8,7 @@
 import {
   getChurchById, getContactsByChurch, getInteractionsByChurch, getTasksByChurch,
   getNotesByChurch, getMinistryByChurch, getChurchGivingSummary, getUserById,
-  isTaskOverdue, TODAY,
+  isTaskOverdue, getAttentionFlags, getPipelineCounts, TODAY,
 } from '../data/helpers.js';
 import { ENGAGEMENT_STATUS, GIVING_STATUS, INTERACTION_TYPE, MINISTRY_TYPE } from '../data/labels.js';
 import db from '../data/db.js';
@@ -70,4 +70,67 @@ export function todayTasks() {
       (b.overdue - a.overdue) ||
       a.dueDate.localeCompare(b.dueDate) ||
       a.church.localeCompare(b.church));
+}
+
+// The contact to address a follow-up to: prefer the Champion, then a primary
+// contact, then anyone on file.
+export function primaryContact(churchId) {
+  const contacts = getContactsByChurch(churchId);
+  if (!contacts.length) return null;
+  const byRole = role => contacts.find(c => c.kfaRole === role);
+  const pick = byRole('champion') || byRole('primary_contact') || byRole('advocate') || contacts[0];
+  return { name: pick.name, position: pick.position, preferredContact: pick.preferredContact, notes: pick.notes };
+}
+
+// Whole-portfolio read for coaching (Opus). Surfaces where momentum is slipping,
+// giving is softening, and work is piling up — the raw material for a play.
+const PARTNER_TIERS = ['active_partner', 'strategic_partner'];
+
+export function portfolioContext() {
+  const me = getUserById('usr_001');
+  const partners = db.churches.filter(c => PARTNER_TIERS.includes(c.engagementStatus));
+
+  // Partners drifting: ranked by days since last contact.
+  const slipping = partners
+    .map(c => ({
+      name: c.name,
+      county: c.county,
+      status: ENGAGEMENT_STATUS[c.engagementStatus]?.label ?? c.engagementStatus,
+      daysSinceContact: daysBetween(TODAY, c.lastInteractionDate),
+      coordinator: c.assignedCoordinatorId ? getUserById(c.assignedCoordinatorId)?.name : null,
+    }))
+    .filter(c => c.daysSinceContact >= 30)
+    .sort((a, b) => b.daysSinceContact - a.daysSinceContact);
+
+  // Giving softening: this year materially below last year.
+  const givingWatch = db.churches
+    .map(c => {
+      const g = getChurchGivingSummary(c.id);
+      return { name: c.name, county: c.county, thisYear: g.thisYearTotal, lastYear: g.lastYearTotal };
+    })
+    .filter(c => c.lastYear > 0 && c.thisYear < c.lastYear * 0.75)
+    .sort((a, b) => (b.lastYear - b.thisYear) - (a.lastYear - a.thisYear));
+
+  // Where overdue work is concentrated, by county.
+  const overdue = todayTasks().filter(t => t.overdue);
+  const overdueByCounty = {};
+  for (const t of overdue) overdueByCounty[t.county] = (overdueByCounty[t.county] || 0) + 1;
+
+  // Attention flags rolled up by reason.
+  const flagsByReason = {};
+  for (const f of getAttentionFlags()) flagsByReason[f.reason] = (flagsByReason[f.reason] || 0) + 1;
+
+  return {
+    coordinator: me ? { name: me.name, county: me.county } : null,
+    totalChurches: db.churches.length,
+    partnerCount: partners.length,
+    pipeline: getPipelineCounts().map(p => ({ stage: ENGAGEMENT_STATUS[p.stage]?.label ?? p.stage, count: p.count })),
+    slipping,
+    givingWatch,
+    overdueTotal: overdue.length,
+    overdueByCounty: Object.entries(overdueByCounty)
+      .map(([county, count]) => ({ county, count }))
+      .sort((a, b) => b.count - a.count),
+    flagsByReason,
+  };
 }

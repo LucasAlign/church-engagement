@@ -3,7 +3,7 @@
 // today without a key. In Phase 3 the stub is ignored and the Edge Function
 // returns the real Claude output in the same shape.
 import { callModel, MODELS } from './client.js';
-import { churchContext, todayTasks } from './context.js';
+import { churchContext, todayTasks, portfolioContext, primaryContact } from './context.js';
 import { TODAY } from '../data/helpers.js';
 import { INTERACTION_TYPE, fmtDate, fmtMoney } from '../data/labels.js';
 
@@ -81,6 +81,7 @@ export function summarizeChurch({ churchId }) {
       else if (ctx.openTasks.length) nudge = `${ctx.openTasks.length} open task${ctx.openTasks.length === 1 ? '' : 's'} to clear.`;
       else nudge = 'Relationship looks current — keep the cadence.';
       return {
+        model,
         text: `${ctx.name} is an ${ctx.engagement.toLowerCase()} in ${ctx.county}, ${contact}. ${ministry} ${giving} ${nudge}`,
       };
     },
@@ -100,7 +101,7 @@ export function dailyBrief() {
     messages: [{ role: 'user', content: JSON.stringify(tasks.slice(0, 12)) }],
     stub: () => {
       if (!tasks.length) {
-        return { text: 'Nothing open or overdue right now — you\'re clear for today.', items: [] };
+        return { model, text: 'Nothing open or overdue right now — you\'re clear for today.', items: [] };
       }
       const top = tasks.slice(0, 6);
       const overdueCount = tasks.filter(t => t.overdue).length;
@@ -111,27 +112,147 @@ export function dailyBrief() {
         const flag = t.overdue ? 'OVERDUE' : `due ${fmtDate(t.dueDate)}`;
         return `• ${t.church} (${t.county}) — ${t.title} [${flag}]`;
       });
-      return { text: `${lead}\n${lines.join('\n')}`, items: top };
+      return { model, text: `${lead}\n${lines.join('\n')}`, items: top };
     },
   });
 }
 
-// --- 4. Portfolio coaching (Opus) — wired up in Phase 2 --------------------
-// Routed to Opus 4.8 because it reasons across the whole portfolio. The Edge
-// Function will enable adaptive thinking for this one. Phase 1 returns a stub
-// so the drawer's free-text box does something honest.
-export function coach({ question }) {
+// --- Draft a follow-up (Haiku) ---------------------------------------------
+// Church (+ best contact) → a short email or call script, channel chosen from
+// the contact's preferred method. Returns { model, text, channel }.
+const TITLE_RE = /^(pastor|rev|reverend|dr|fr|father|mr|mrs|ms|bishop|elder)\.?\s+/i;
+function firstName(name) {
+  const stripped = (name || '').replace(TITLE_RE, '').trim();
+  return stripped.split(/\s+/)[0] || 'there';
+}
+
+export function draftFollowUp({ churchId }) {
+  const ctx = churchContext(churchId);
+  const contact = primaryContact(churchId);
+  const model = MODELS.HAIKU;
+  const system = 'You draft a short, warm, specific follow-up for a church relationship '
+    + 'coordinator — an email or a call script depending on the contact\'s preference. '
+    + 'Reference where the relationship stands and propose one clear next step.';
   return callModel({
-    model: MODELS.OPUS,
-    system: 'You are a coaching partner for a church relationship coordinator, reasoning across '
-      + 'their whole portfolio to find where momentum is slipping and what to do next.',
-    messages: [{ role: 'user', content: question }],
-    stub: () => ({
-      text: 'Portfolio coaching runs on Opus 4.8 and arrives in Phase 2 — it\'ll read across every '
-        + 'church to answer questions like this. For now, try "What\'s on today?" or summarize a church.',
-      placeholder: true,
-    }),
+    model,
+    system,
+    messages: [{ role: 'user', content: JSON.stringify({ church: ctx, contact }) }],
+    stub: () => {
+      if (!ctx) return { model, text: 'No data for this church yet.', channel: 'email' };
+      const call = contact && ['phone', 'text'].includes(contact.preferredContact);
+      const who = contact ? firstName(contact.name) : 'there';
+
+      // A grounded reason to reach out.
+      let hook;
+      if (ctx.daysSinceContact > 90) hook = `it's been a while since we connected (about ${ctx.daysSinceContact} days)`;
+      else if (ctx.activeMinistries.length) hook = `your team's work in ${ctx.activeMinistries[0]}`;
+      else if (ctx.giving.thisYear > 0) hook = 'your partnership with us this year';
+      else hook = 'where things stand between our teams';
+
+      // One clear ask.
+      const ask = ctx.activeMinistries.length
+        ? `Could we grab 20 minutes to look at how ${ctx.activeMinistries[0]} is going and what's next?`
+        : 'Could we find 20 minutes for a quick catch-up in the next week or two?';
+
+      if (call) {
+        const text = [
+          `Call script — ${ctx.name} (${who})`,
+          '',
+          `• Open warm: thank ${who} for ${hook}.`,
+          `• Reference: ${ctx.engagement.toLowerCase()}, last touch ${ctx.daysSinceContact <= 0 ? 'today' : `${ctx.daysSinceContact}d ago`}.`,
+          `• Ask: ${ask}`,
+          '• Close: confirm a time, note it for follow-up.',
+        ].join('\n');
+        return { model, text, channel: 'call' };
+      }
+
+      const text = [
+        `Subject: Catching up — ${ctx.name}`,
+        '',
+        `Hi ${who},`,
+        '',
+        `I've been thinking about ${hook}, and wanted to reach out. ${ask}`,
+        '',
+        'Let me know what works and I\'ll send an invite.',
+        '',
+        'Warmly,',
+        'KeyFam1 Church Engagement',
+      ].join('\n');
+      return { model, text, channel: 'email' };
+    },
   });
+}
+
+// --- 4. Portfolio coaching (Opus) ------------------------------------------
+// Routed to Opus 4.8 because it reasons across the whole portfolio. The Edge
+// Function will enable adaptive thinking for this one. Until then the stub
+// computes a genuine momentum read from portfolioContext and proposes plays.
+const FOCUS = [
+  [/\bgiv|donat|money|fund|pledge|revenue\b/i, 'giving'],
+  [/\boverdue|behind|task|catch ?up|backlog\b/i, 'overdue'],
+  [/\bmomentum|slip|drift|quiet|cold|stall|reconnect|lapsed?\b/i, 'momentum'],
+];
+
+export function coach({ question }) {
+  const ctx = portfolioContext();
+  const model = MODELS.OPUS;
+  const system = 'You are a coaching partner for a church relationship coordinator. Reason across '
+    + 'their whole portfolio to find where momentum is slipping, where giving is softening, and '
+    + 'where work is piling up — then recommend two or three concrete plays. Be specific and brief.';
+  return callModel({
+    model,
+    system,
+    messages: [{ role: 'user', content: JSON.stringify({ question, portfolio: ctx }) }],
+    stub: () => ({ model, text: coachAnalysis(question || '', ctx) }),
+  });
+}
+
+// Deterministic stand-in for the Opus call: a grounded portfolio read. The Edge
+// Function replaces this with the real model; the inputs and shape are identical.
+function coachAnalysis(question, ctx) {
+  const match = FOCUS.find(([re]) => re.test(question));
+  const focus = match ? match[1] : 'momentum';
+  const countyMatch = ctx.overdueByCounty.find(c => question.toLowerCase().includes(c.county.toLowerCase()));
+
+  const sections = {
+    momentum: () => {
+      if (!ctx.slipping.length) return `All ${ctx.partnerCount} partners have been touched in the last 30 days — momentum is healthy.`;
+      const top = ctx.slipping.slice(0, 3)
+        .map(c => `• ${c.name} (${c.county}) — ${c.daysSinceContact}d since contact, ${c.status.toLowerCase()}${c.coordinator ? `, ${c.coordinator}` : ', unassigned'}`)
+        .join('\n');
+      return `${ctx.slipping.length} partner${ctx.slipping.length === 1 ? '' : 's'} drifting (30+ days quiet):\n${top}`;
+    },
+    giving: () => {
+      if (!ctx.givingWatch.length) return 'No partners are materially down on giving versus last year.';
+      const top = ctx.givingWatch.slice(0, 3)
+        .map(c => `• ${c.name} (${c.county}) — ${fmtMoney(c.thisYear)} this year vs ${fmtMoney(c.lastYear)} last`)
+        .join('\n');
+      return `Giving softening:\n${top}`;
+    },
+    overdue: () => {
+      if (!ctx.overdueTotal) return 'No overdue tasks across the portfolio.';
+      const top = ctx.overdueByCounty.slice(0, 3).map(c => `${c.county} (${c.count})`).join(', ');
+      return `${ctx.overdueTotal} overdue task${ctx.overdueTotal === 1 ? '' : 's'}, concentrated in ${top}.`;
+    },
+  };
+
+  // Lead with the asked-about angle, then round out the picture.
+  const order = focus === 'giving' ? ['giving', 'momentum', 'overdue']
+    : focus === 'overdue' ? ['overdue', 'momentum', 'giving']
+    : ['momentum', 'giving', 'overdue'];
+
+  const body = order.map(k => sections[k]()).join('\n\n');
+
+  // Concrete plays, drawn from whatever the data actually shows.
+  const plays = [];
+  if (countyMatch) plays.push(`Block a ${countyMatch.county} call-down day — ${countyMatch.count} overdue task${countyMatch.count === 1 ? '' : 's'} sitting there.`);
+  if (ctx.slipping[0]) plays.push(`Reconnect with ${ctx.slipping[0].name} first — ${ctx.slipping[0].daysSinceContact} days dark and it's a ${ctx.slipping[0].status.toLowerCase()}.`);
+  if (ctx.givingWatch[0]) plays.push(`Open a giving conversation with ${ctx.givingWatch[0].name} — down ${fmtMoney(ctx.givingWatch[0].lastYear - ctx.givingWatch[0].thisYear)} on last year.`);
+  if (ctx.flagsByReason.missing_report) plays.push(`Chase the ${ctx.flagsByReason.missing_report} outstanding impact report${ctx.flagsByReason.missing_report === 1 ? '' : 's'} — partners expect them back.`);
+  if (!plays.length) plays.push('Keep the current cadence — nothing is flashing red this week.');
+
+  const playText = plays.slice(0, 3).map((p, i) => `${i + 1}. ${p}`).join('\n');
+  return `${body}\n\nPlays:\n${playText}`;
 }
 
 // Re-export for convenience in the UI.

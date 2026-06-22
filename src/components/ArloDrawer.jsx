@@ -7,14 +7,32 @@
 import { useEffect, useRef, useState } from 'react';
 import {
   IconSparkles, IconX, IconCalendarTime, IconBuildingChurch,
-  IconClipboardText, IconSend,
+  IconClipboardText, IconSend, IconMailForward, IconCopy, IconCheck,
 } from '@tabler/icons-react';
 import db from '../data/db.js';
 import { addInteraction } from '../data/helpers.js';
 import { useDb } from '../data/store.jsx';
 import {
-  dailyBrief, summarizeChurch, captureInteraction, coach, MODEL_LABELS, INTERACTION_TYPE,
+  dailyBrief, summarizeChurch, captureInteraction, draftFollowUp, coach,
+  MODEL_LABELS, INTERACTION_TYPE,
 } from '../ai/arlo.js';
+
+function CopyButton({ text }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard unavailable — no-op */ }
+  };
+  return (
+    <button className="arlo-copy" onClick={copy} aria-label="Copy">
+      {copied ? <IconCheck stroke={1.75} /> : <IconCopy stroke={1.75} />}
+      {copied ? 'Copied' : 'Copy'}
+    </button>
+  );
+}
 
 let entrySeq = 0;
 
@@ -25,6 +43,7 @@ export default function ArloDrawer() {
   const [busy, setBusy] = useState(false);
   const [panel, setPanel] = useState(null); // 'summarize' | 'capture' | null
   const [summChurchId, setSummChurchId] = useState(db.churches[0].id);
+  const [draftChurchId, setDraftChurchId] = useState(db.churches[0].id);
   const [note, setNote] = useState('');
   const [captureChurchId, setCaptureChurchId] = useState(db.churches[0].id);
   const [draft, setDraft] = useState(null);
@@ -52,11 +71,11 @@ export default function ArloDrawer() {
 
   const addEntry = entry => setEntries(es => [...es, { id: ++entrySeq, ...entry }]);
 
-  const run = async (action, title) => {
+  const run = async (action, title, opts = {}) => {
     setBusy(true);
     try {
       const res = await action();
-      addEntry({ title, model: res.model, body: res.text, placeholder: res.placeholder });
+      addEntry({ title, model: res.model, body: res.text, placeholder: res.placeholder, copyable: opts.copyable });
     } finally {
       setBusy(false);
     }
@@ -68,6 +87,12 @@ export default function ArloDrawer() {
     const name = db.churches.find(c => c.id === summChurchId)?.name;
     setPanel(null);
     run(() => summarizeChurch({ churchId: summChurchId }), `Summary · ${name}`);
+  };
+
+  const onDraft = () => {
+    const name = db.churches.find(c => c.id === draftChurchId)?.name;
+    setPanel(null);
+    run(() => draftFollowUp({ churchId: draftChurchId }), `Draft · ${name}`, { copyable: true });
   };
 
   const onStructure = async () => {
@@ -136,6 +161,7 @@ export default function ArloDrawer() {
                   {e.model && <span className="arlo-model">{MODEL_LABELS[e.model] || ''}</span>}
                 </div>
                 <div className={`arlo-entry-body ${e.placeholder ? 'muted' : ''}`}>{e.body}</div>
+                {e.copyable && <CopyButton text={e.body} />}
               </div>
             ))}
 
@@ -148,6 +174,19 @@ export default function ArloDrawer() {
                 <div className="arlo-panel-actions">
                   <button className="btn" onClick={() => setPanel(null)}>Cancel</button>
                   <button className="btn primary" onClick={onSummarize} disabled={busy}>Summarize</button>
+                </div>
+              </div>
+            )}
+
+            {panel === 'draft' && (
+              <div className="arlo-panel">
+                <label className="field-label">Draft a follow-up for</label>
+                <select className="select" value={draftChurchId} onChange={e => setDraftChurchId(e.target.value)}>
+                  {db.churches.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                </select>
+                <div className="arlo-panel-actions">
+                  <button className="btn" onClick={() => setPanel(null)}>Cancel</button>
+                  <button className="btn primary" onClick={onDraft} disabled={busy}>Draft it</button>
                 </div>
               </div>
             )}
@@ -209,6 +248,9 @@ export default function ArloDrawer() {
             </button>
             <button className="arlo-chip" onClick={() => { setDraft(null); setPanel('summarize'); }} disabled={busy}>
               <IconBuildingChurch stroke={1.75} /> Summarize a church
+            </button>
+            <button className="arlo-chip" onClick={() => { setDraft(null); setPanel('draft'); }} disabled={busy}>
+              <IconMailForward stroke={1.75} /> Draft follow-up
             </button>
             <button className="arlo-chip" onClick={() => { setDraft(null); setPanel('capture'); }} disabled={busy}>
               <IconClipboardText stroke={1.75} /> Capture interaction
