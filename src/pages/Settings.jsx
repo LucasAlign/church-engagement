@@ -7,9 +7,13 @@ import { useDb } from '../data/store.jsx';
 
 export default function Settings() {
   const { refresh } = useDb();
-  const me = getUserById('usr_001');
-  const [name, setName] = useState(me.name);
-  const [email, setEmail] = useState(me.email);
+  // app_users may not contain usr_001 (Supabase data / demo mode), so fall back
+  // to a safe shape instead of crashing the page — same guard TopNav uses.
+  const me = getUserById('usr_001') || {
+    id: 'usr_001', name: '', email: '', role: 'Coordinator', county: '—', initials: '?',
+  };
+  const [name, setName] = useState(me.name || '');
+  const [email, setEmail] = useState(me.email || '');
   const [saved, setSaved] = useState(false);
 
   const save = () => {
