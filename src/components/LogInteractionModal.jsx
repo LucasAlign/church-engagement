@@ -19,7 +19,7 @@ export default function LogInteractionModal({ churchId, onClose }) {
   const [structuring, setStructuring] = useState(false);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  // Let Arlo turn a freeform note into structured type/date/notes (Haiku).
+  // Let Karen turn a freeform note into structured type/date/notes (Haiku).
   const structure = async () => {
     if (!form.notes.trim()) return;
     setStructuring(true);
@@ -78,12 +78,12 @@ export default function LogInteractionModal({ churchId, onClose }) {
             onClick={structure}
             disabled={structuring || !form.notes.trim()}
           >
-            <IconSparkles stroke={1.75} /> {structuring ? 'Structuring…' : 'Structure with Arlo'}
+            <IconSparkles stroke={1.75} /> {structuring ? 'Structuring…' : 'Structure with Karen'}
           </button>
         </div>
         <textarea
           className="select"
-          placeholder="What happened? Jot it freeform, then let Arlo structure it."
+          placeholder="What happened? Jot it freeform, then let Karen structure it."
           value={form.notes}
           onChange={e => set('notes', e.target.value)}
         />

@@ -22,7 +22,7 @@ import { useDb } from '../data/store.jsx';
 
 const TABS = ['Overview', 'People', 'Timeline', 'Ministry', 'Giving', 'Notes', 'Tasks'];
 
-// One-line status read from Arlo (Haiku), refreshed when the church changes.
+// One-line status read from Karen (Haiku), refreshed when the church changes.
 function ArloSummary({ churchId }) {
   const [text, setText] = useState('');
   useEffect(() => {
@@ -34,7 +34,7 @@ function ArloSummary({ churchId }) {
   return (
     <div className="arlo-summary">
       <IconSparkles stroke={1.75} />
-      <span>{text || 'Arlo is reading this church…'}</span>
+      <span>{text || 'Karen is reading this church…'}</span>
     </div>
   );
 }

@@ -126,14 +126,14 @@ export default function ArloDrawer() {
     const q = ask.trim();
     setAsk('');
     addEntry({ title: 'You', body: q, mine: true });
-    run(() => coach({ question: q }), 'Arlo');
+    run(() => coach({ question: q }), 'Karen');
   };
 
   return (
     <>
       {!open && (
-        <button className="arlo-fab" onClick={() => setOpen(true)} aria-label="Open Arlo (⌘K)">
-          <IconSparkles stroke={1.75} /> Ask Arlo
+        <button className="arlo-fab" onClick={() => setOpen(true)} aria-label="Open Karen (⌘K)">
+          <IconSparkles stroke={1.75} /> Ask Karen
         </button>
       )}
 
@@ -141,7 +141,7 @@ export default function ArloDrawer() {
         <div className="arlo-drawer">
           <div className="arlo-header">
             <div className="arlo-title">
-              <IconSparkles stroke={1.75} /> Arlo
+              <IconSparkles stroke={1.75} /> Karen
               <span className="arlo-hint">Haiku 4.5 · Opus 4.8</span>
             </div>
             <button className="icon-btn" onClick={() => setOpen(false)} aria-label="Close"><IconX /></button>
@@ -232,14 +232,14 @@ export default function ArloDrawer() {
                   <div className="arlo-panel-actions">
                     <button className="btn" onClick={() => setPanel(null)}>Cancel</button>
                     <button className="btn primary" onClick={onStructure} disabled={busy || !note.trim()}>
-                      Structure with Arlo
+                      Structure with Karen
                     </button>
                   </div>
                 )}
               </div>
             )}
 
-            {busy && <div className="arlo-thinking">Arlo is working…</div>}
+            {busy && <div className="arlo-thinking">Karen is working…</div>}
           </div>
 
           <div className="arlo-actions">
@@ -260,7 +260,7 @@ export default function ArloDrawer() {
           <div className="arlo-ask">
             <input
               type="text"
-              placeholder="Ask Arlo about your portfolio…"
+              placeholder="Ask Karen about your portfolio…"
               value={ask}
               onChange={e => setAsk(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && onAsk()}
