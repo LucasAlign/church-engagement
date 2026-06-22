@@ -1,9 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   IconMapPin, IconUsers, IconCalendar, IconUserCircle, IconMail, IconPhone,
   IconPlus, IconPencil, IconPinned, IconLock, IconArchive, IconBuildingChurch, IconX, IconAlertCircle, IconLoader,
+  IconSparkles,
 } from '@tabler/icons-react';
+import { summarizeChurch } from '../ai/karen.js';
 import {
   getChurchById, getContactsByChurch, getInteractionsByChurch, getTasksByChurch,
   getNotesByChurch, getMinistryByChurch, getChurchGivingSummary, getUserById,
@@ -573,6 +575,25 @@ function TasksTab({ church }) {
   );
 }
 
+// One-line status read from Karen (Haiku), refreshed when the church changes.
+function KarenSummary({ churchId }) {
+  const [text, setText] = useState('');
+  useEffect(() => {
+    let live = true;
+    setText('');
+    summarizeChurch({ churchId })
+      .then(r => { if (live) setText(r.text); })
+      .catch(() => { if (live) setText('Summary unavailable right now.'); });
+    return () => { live = false; };
+  }, [churchId]);
+  return (
+    <div className="karen-summary">
+      <IconSparkles stroke={1.75} />
+      <span>{text || 'Karen is reading this church…'}</span>
+    </div>
+  );
+}
+
 export default function ChurchProfile() {
   useDb();
   const { id } = useParams();
@@ -620,6 +641,7 @@ export default function ChurchProfile() {
           <button className="btn primary" onClick={() => setLogging(true)}><IconPlus stroke={2} /> Log interaction</button>
         </div>
       </div>
+      <KarenSummary churchId={church.id} />
       <div className="tab-nav">
         {TABS.map(t => (
           <button key={t} className={`tab-btn ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>{t}</button>

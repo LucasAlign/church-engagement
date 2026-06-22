@@ -7,6 +7,7 @@ import {
 import { getUserById } from '../data/helpers.js';
 import { useDb } from '../data/store.jsx';
 import { AvatarInitials } from './shared.jsx';
+import KarenDrawer from './KarenDrawer.jsx';
 
 function FlockLogo() {
   return (
@@ -115,6 +116,7 @@ export function AppShell({ children }) {
         <BackendBanner />
         <div className="page">{children}</div>
       </main>
+      <KarenDrawer />
     </div>
   );
 }
