@@ -1,7 +1,7 @@
 // Log Interaction modal — writes to the in-memory db.
 import { useState } from 'react';
 import db from '../data/db.js';
-import { addInteraction, TODAY } from '../data/helpers.js';
+import { addInteraction, addImpactReport, TODAY } from '../data/helpers.js';
 import { INTERACTION_TYPE } from '../data/labels.js';
 import { useDb } from '../data/store.jsx';
 import { Modal } from './shared.jsx';
@@ -14,11 +14,15 @@ export default function LogInteractionModal({ churchId, onClose }) {
     date: TODAY,
     notes: '',
   });
+  const [reportYear, setReportYear] = useState(2026);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const save = () => {
     if (!form.notes.trim()) return;
     addInteraction(form);
+    if (form.type === 'impact_report') {
+      addImpactReport({ churchId: form.churchId, year: Number(reportYear), notes: form.notes });
+    }
     refresh();
     onClose();
   };
@@ -50,6 +54,17 @@ export default function LogInteractionModal({ churchId, onClose }) {
           ))}
         </select>
       </div>
+      {form.type === 'impact_report' && (
+        <div className="field">
+          <label className="field-label">Report year</label>
+          <input
+            type="number"
+            className="select"
+            value={reportYear}
+            onChange={e => setReportYear(e.target.value)}
+          />
+        </div>
+      )}
       <div className="field">
         <label className="field-label">Date</label>
         <input type="date" className="select" value={form.date} onChange={e => set('date', e.target.value)} />

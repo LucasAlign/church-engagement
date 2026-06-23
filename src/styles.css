@@ -766,3 +766,213 @@ textarea.select { resize: vertical; min-height: 70px; }
   border-color: var(--blue-400);
   background: var(--blue-bg);
 }
+
+/* === shell/nav: avatar menu === */
+.avatar-menu {
+  position: relative;
+  display: inline-flex;
+}
+.avatar-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: pointer;
+  border-radius: 999px;
+}
+.avatar-menu-trigger:focus-visible {
+  outline: 2px solid var(--blue-400);
+  outline-offset: 2px;
+}
+.avatar-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 50;
+  min-width: 160px;
+  padding: 6px;
+  background: #fff;
+  border: 1px solid var(--border, #e5e7eb);
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.avatar-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  background: none;
+  border-radius: 6px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text, #1f2937);
+  text-align: left;
+  cursor: pointer;
+}
+.avatar-menu-item:hover,
+.avatar-menu-item:focus-visible {
+  background: var(--gray-100, #f3f4f6);
+  outline: none;
+}
+.avatar-menu-item svg {
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+
+/* === overview/home === */
+.dir-row.active { background: var(--bg-secondary); box-shadow: inset 3px 0 0 var(--primary-500); }
+
+.db-status-pills { display: flex; gap: 4px; flex-wrap: wrap; }
+
+/* to-do widget */
+.todo-add-form {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 0.5px solid var(--border);
+  background: var(--bg-page);
+}
+.todo-add-row { display: flex; gap: 8px; align-items: center; }
+.todo-input {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  font-size: 13px;
+  background: #fff;
+  font-family: inherit;
+}
+.todo-add-form > .todo-input { width: 100%; }
+.todo-add-row .todo-input { flex: 1; min-width: 0; }
+
+.todo-list { display: flex; flex-direction: column; }
+.todo-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 0.5px solid var(--border);
+}
+.todo-row:last-child { border-bottom: none; }
+.todo-row.overdue { box-shadow: inset 3px 0 0 var(--red-400); }
+.todo-check { width: 16px; height: 16px; flex-shrink: 0; cursor: pointer; accent-color: var(--primary-500); }
+.todo-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.todo-title { font-size: 13.5px; font-weight: 500; }
+.todo-meta { display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--text-secondary); }
+.todo-church { color: var(--text-tertiary); }
+.todo-due { display: inline-flex; align-items: center; gap: 3px; }
+.todo-due.overdue { color: var(--red-400); font-weight: 500; }
+
+/* === church profile: advocate/forms === */
+.advocate-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.profile-form .form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.profile-form .form-grid .field { margin-bottom: 0; }
+@media (max-width: 640px) {
+  .profile-form .form-grid { grid-template-columns: 1fr; }
+}
+
+/* === analytics === */
+.analytics-placeholders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.analytics-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px dashed var(--gray-400, #cbd5e1);
+  border-radius: 8px;
+  background: var(--gray-50, #f8fafc);
+}
+.analytics-chip-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+}
+.analytics-chip-sub {
+  font-size: 11px;
+  color: var(--text-tertiary, #94a3b8);
+}
+.analytics-map-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 140px;
+  padding: 20px;
+  border: 1px dashed var(--gray-400, #cbd5e1);
+  border-radius: 10px;
+  background: var(--gray-50, #f8fafc);
+}
+.analytics-map-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+}
+.analytics-map-body {
+  font-size: 12px;
+  line-height: 1.5;
+  max-width: 420px;
+  color: var(--text-tertiary, #94a3b8);
+}
+
+/* === church profile popup modal === */
+.church-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 20px;
+  z-index: 1200;
+  overflow-y: auto;
+}
+.church-modal {
+  position: relative;
+  background: var(--bg, #fff);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 920px;
+  padding: 28px 28px 32px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.22);
+}
+.church-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: var(--gray-bg, #f1f5f9);
+  border: none;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary, #475569);
+  z-index: 1;
+}
+.church-modal-close:hover { background: var(--gray-200, #e2e8f0); }
