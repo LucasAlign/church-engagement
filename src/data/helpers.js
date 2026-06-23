@@ -5,6 +5,32 @@ import db from './db.js';
 // Frozen "today" so the prototype renders deterministically.
 export const TODAY = '2026-06-09';
 
+// --- engagement status migration -------------------------------------------
+// Old taxonomy -> new taxonomy. active_partner->partnering, strategic_partner
+// and the early-funnel statuses -> potential, not_contacted/dormant -> unreached.
+// "unable_to_sign" is new and starts empty.
+const STATUS_MIGRATION = {
+  active_partner: 'partnering',
+  strategic_partner: 'potential',
+  interested: 'potential',
+  initial_contact: 'potential',
+  not_contacted: 'unreached',
+  dormant: 'unreached',
+};
+
+export function normalizeEngagementStatus(status) {
+  return STATUS_MIGRATION[status] || status;
+}
+
+// Rewrite any legacy engagementStatus values in the in-memory db to the new
+// taxonomy. Safe to call repeatedly; runs after the backend hydrates db.
+export function migrateEngagementStatuses() {
+  for (const church of db.churches) {
+    const next = normalizeEngagementStatus(church.engagementStatus);
+    if (next !== church.engagementStatus) church.engagementStatus = next;
+  }
+}
+
 // Dashboard summary cards
 export function getDashboardStats() {
   const now = new Date(TODAY);
@@ -14,7 +40,7 @@ export function getDashboardStats() {
   return {
     totalChurches: db.churches.length,
     activePartners: db.churches.filter(c =>
-      ['active_partner', 'strategic_partner'].includes(c.engagementStatus)).length,
+      c.engagementStatus === 'partnering').length,
     contactedThisMonth: db.interactions
       .filter(i => i.date >= thisMonthStart)
       .map(i => i.churchId)
@@ -68,7 +94,7 @@ export function getAttentionFlags() {
     if (!contacts.length)
       flags.push({ churchId: church.id, reason: 'no_leadership', label: 'Missing leadership information' });
     const hasCurrentReport = db.impactReports.some(r => r.churchId === church.id && String(r.year) === currentYear);
-    if (!hasCurrentReport && ['active_partner', 'strategic_partner'].includes(church.engagementStatus))
+    if (!hasCurrentReport && church.engagementStatus === 'partnering')
       flags.push({ churchId: church.id, reason: 'missing_report', label: `${parseInt(currentYear) - 1} impact report not uploaded` });
     if (!church.assignedCoordinatorId)
       flags.push({ churchId: church.id, reason: 'no_coordinator', label: 'No assigned coordinator' });
@@ -155,7 +181,7 @@ export function getOverdueTaskCount() {
 }
 
 // Engagement pipeline counts, in stage order
-export const PIPELINE_STAGES = ['not_contacted', 'initial_contact', 'interested', 'active_partner', 'strategic_partner', 'dormant'];
+export const PIPELINE_STAGES = ['partnering', 'potential', 'unreached', 'unable_to_sign'];
 export function getPipelineCounts() {
   return PIPELINE_STAGES.map(stage => ({
     stage,
@@ -202,7 +228,7 @@ export function getGivingStatusBreakdown() {
 // Active/strategic partners missing the current-cycle impact report
 export function getMissingReports(year = 2025) {
   return db.churches.filter(c =>
-    ['active_partner', 'strategic_partner'].includes(c.engagementStatus) &&
+    c.engagementStatus === 'partnering' &&
     !db.impactReports.some(r => r.churchId === c.id && r.year === year));
 }
 
@@ -232,9 +258,13 @@ export function addCareCommunity({ churchId, name, status, startDate, notes }) {
 export function updateCareCommunity(id, fields) {
   if (!db.careCommunities) return; const c = db.careCommunities.find(x => x.id === id); if (c) Object.assign(c, fields); notifyDb();
 }
-export function addAdvocate({ churchId, name, email, phone, status, notes }) {
+export function getAdvocatesByChurch(churchId) {
+  return (db.advocates || []).filter(a => a.churchId === churchId);
+}
+export function addAdvocate({ churchId, name, email, phone, status, role, notes }) {
   if (!db.advocates) db.advocates = [];
-  db.advocates.push({ id: `adv_${++seq}`, churchId, name, email: email || null, phone: phone || null, status: status || 'prospect', notes: notes || null, createdAt: TODAY }); notifyDb();
+  const adv = { id: `adv_${++seq}`, churchId, name, email: email || null, phone: phone || null, status: status || 'prospect', role: role || null, notes: notes || null, createdAt: TODAY };
+  db.advocates.push(adv); notifyDb(); return adv.id;
 }
 export function updateAdvocate(id, fields) {
   if (!db.advocates) return; const a = db.advocates.find(x => x.id === id); if (a) Object.assign(a, fields); notifyDb();
@@ -248,7 +278,7 @@ export function updateConnection(id, fields) {
 }
 export function addChurch({ name, address, city, state, zip, phone, email, website, denomination, attendanceMin, attendanceMax, engagementStatus, notes }) {
   const id = `ch_${++seq}`;
-  db.churches.push({ id, name, address: address || null, city: city || '', state: state || 'PA', zip: zip || null, phone: phone || null, email: email || null, website: website || null, denomination: denomination || null, attendanceMin: parseInt(attendanceMin) || 0, attendanceMax: parseInt(attendanceMax) || 0, engagementStatus: engagementStatus || 'not_contacted', lastInteractionDate: null, firstContactDate: null, assignedCoordinatorId: null, notes: notes || null });
+  db.churches.push({ id, name, address: address || null, city: city || '', state: state || 'PA', zip: zip || null, phone: phone || null, email: email || null, website: website || null, denomination: denomination || null, attendanceMin: parseInt(attendanceMin) || 0, attendanceMax: parseInt(attendanceMax) || 0, engagementStatus: normalizeEngagementStatus(engagementStatus) || 'unreached', lastInteractionDate: null, firstContactDate: null, assignedCoordinatorId: null, notes: notes || null });
   notifyDb(); return id;
 }
 export function updateChurch(id, fields) {
@@ -300,7 +330,7 @@ export function importChurches(rows) {
       denomination: r.denomination || null,
       attendanceMin: parseInt(r.attendance_min) || 0,
       attendanceMax: parseInt(r.attendance_max) || 0,
-      engagementStatus: r.engagement_status || 'not_contacted',
+      engagementStatus: normalizeEngagementStatus(r.engagement_status) || 'unreached',
       notes: r.notes || null,
       lastInteractionDate: null,
       firstContactDate: null,

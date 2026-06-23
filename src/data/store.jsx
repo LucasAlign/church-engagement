@@ -4,6 +4,7 @@
 // hydrated from it at startup and mutations are written through.
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { initBackend, isRemote } from './backend.js';
+import { migrateEngagementStatuses } from './helpers.js';
 
 // backend: 'demo' (no Supabase config, changes not saved),
 // 'loading', 'remote', or 'error'.
@@ -15,6 +16,9 @@ export function DbProvider({ children }) {
   const [backendError, setBackendError] = useState(null);
   const refresh = useCallback(() => setVersion(v => v + 1), []);
   useEffect(() => {
+    // Normalize any legacy engagement statuses already in the in-memory db
+    // (demo mode); remote data is normalized again after it hydrates below.
+    migrateEngagementStatuses();
     if (!isRemote()) return;
     const timeout = setTimeout(() => {
       console.error('Backend initialization timeout');
@@ -23,6 +27,7 @@ export function DbProvider({ children }) {
     initBackend()
       .then(() => {
         clearTimeout(timeout);
+        migrateEngagementStatuses();
         setBackend('remote');
       })
       .catch(err => {
