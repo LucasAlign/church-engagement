@@ -869,3 +869,21 @@ textarea.select { resize: vertical; min-height: 70px; }
 .todo-church { color: var(--text-tertiary); }
 .todo-due { display: inline-flex; align-items: center; gap: 3px; }
 .todo-due.overdue { color: var(--red-400); font-weight: 500; }
+
+/* === church profile: advocate/forms === */
+.advocate-toolbar {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.profile-form .form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.profile-form .form-grid .field { margin-bottom: 0; }
+@media (max-width: 640px) {
+  .profile-form .form-grid { grid-template-columns: 1fr; }
+}
