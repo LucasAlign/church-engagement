@@ -977,3 +977,18 @@ textarea.select { resize: vertical; min-height: 70px; }
   z-index: 1;
 }
 .church-modal-close:hover { background: var(--gray-200, #e2e8f0); }
+
+/* === app background image === */
+/* Drop a licensed image at public/background.jpg to use this. */
+.app-shell { position: relative; }
+.app-shell::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: url('/background.jpg') center / cover no-repeat;
+  filter: blur(3px);
+  opacity: 0.30;
+  z-index: 0;
+  pointer-events: none;
+}
+.top-nav, .main { position: relative; z-index: 1; }
