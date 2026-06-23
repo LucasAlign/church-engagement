@@ -591,6 +591,7 @@ textarea.select { resize: vertical; min-height: 70px; }
   max-height: calc(100vh - 80px);
   overflow-y: auto;
 }
+.modal.wide { width: 720px; }
 .modal-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 14px 16px;
