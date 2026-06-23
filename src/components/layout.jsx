@@ -1,7 +1,8 @@
-import { NavLink } from 'react-router-dom';
+import { useEffect, useRef, useState } from 'react';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  IconBug,
   IconBell,
+  IconSettings,
   IconLogout,
 } from '@tabler/icons-react';
 import { getUserById } from '../data/helpers.js';
@@ -22,15 +23,70 @@ function FlockLogo() {
 }
 
 const NAV_ITEMS = [
-  { to: '/', label: 'Overview', end: true },
-  { to: '/churches', label: 'Churches' },
-  { to: '/interactions', label: 'Interactions' },
-  { to: '/follow-ups', label: 'Follow-ups' },
-  { to: '/giving', label: 'Giving' },
-  { to: '/reports', label: 'Reports & Impact' },
+  { to: '/', label: 'Churches', end: true },
   { to: '/analytics', label: 'Analytics' },
-  { to: '/settings', label: 'Settings' },
 ];
+
+function AvatarMenu({ me }) {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDocClick(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    function onKey(e) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onDocClick);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDocClick);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  return (
+    <div className="avatar-menu" ref={ref}>
+      <button
+        type="button"
+        className="avatar-menu-trigger"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <AvatarInitials name={me.name} initials={me.initials} size="sm" />
+      </button>
+      {open && (
+        <div className="avatar-menu-dropdown" role="menu">
+          <button
+            type="button"
+            className="avatar-menu-item"
+            role="menuitem"
+            onClick={() => {
+              setOpen(false);
+              navigate('/settings');
+            }}
+          >
+            <IconSettings stroke={1.75} />
+            Settings
+          </button>
+          <button
+            type="button"
+            className="avatar-menu-item"
+            role="menuitem"
+            onClick={() => setOpen(false)}
+          >
+            <IconLogout stroke={1.75} />
+            Sign out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
 
 function TopNav() {
   const me = getUserById('usr_001') || { name: 'User', initials: 'U' };
@@ -59,18 +115,10 @@ function TopNav() {
         </nav>
       </div>
       <div className="top-nav-right">
-        <button className="top-nav-btn">
-          <IconBug stroke={1.75} />
-          Report a Bug
-        </button>
         <button className="icon-btn">
           <IconBell stroke={1.75} />
         </button>
-        <AvatarInitials name={me.name} initials={me.initials} size="sm" />
-        <button className="top-nav-btn">
-          <IconLogout stroke={1.75} />
-          Sign out
-        </button>
+        <AvatarMenu me={me} />
       </div>
     </header>
   );
