@@ -1,10 +1,7 @@
-import { useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useRef, useEffect } from 'react';
 import {
   IconSearch, IconMapPin, IconChevronRight, IconRefresh, IconX,
-  IconUsers, IconBuildingChurch,
-  IconCheckbox, IconAlertCircle, IconPhone, IconMail, IconEdit, IconPlus,
-  IconHeartHandshake,
+  IconBuildingChurch, IconCheckbox, IconAlertCircle, IconPlus,
 } from '@tabler/icons-react';
 import db from '../data/db.js';
 import {
@@ -12,9 +9,10 @@ import {
 } from '../data/helpers.js';
 import { fmtDate, ENGAGEMENT_STATUS, ENGAGEMENT_STATUS_FILTERS, TASK_PRIORITY } from '../data/labels.js';
 import { useDb } from '../data/store.jsx';
-import { ContactDot, AvatarInitials, Badge } from '../components/shared.jsx';
+import { ContactDot, Badge } from '../components/shared.jsx';
 import { saveRecord } from '../data/backend.js';
 import FormModal from '../components/FormModal.jsx';
+import ChurchProfile from './ChurchProfile.jsx';
 
 function getDirectoryCounts() {
   return {
@@ -24,60 +22,18 @@ function getDirectoryCounts() {
   };
 }
 
-function getAllRecords() {
-  const contacts = db.contacts.map(c => {
-    const church = db.churches.find(ch => ch.id === c.churchId);
-    return {
-      id: c.id,
-      name: c.name,
-      sub: c.title || c.email || church?.name || '',
-      typeKey: c.title?.toLowerCase().includes('pastor') ? 'pastor' : 'staff',
-      typeLabel: c.title?.toLowerCase().includes('pastor') ? 'Pastors' : 'Staff',
-      lastContact: c.email ? new Date().toISOString().slice(0, 10) : null,
-      churchId: c.churchId,
-      churchName: church?.name,
-      email: c.email,
-      phone: c.phone,
-      fullRecord: c,
-    };
-  });
-  const congregants = (db.notableCongregants || []).map(cg => ({
-    id: cg.id,
-    name: cg.name,
-    sub: cg.category || cg.title || '',
-    typeKey: 'congregant',
-    typeLabel: 'Congregants',
-    lastContact: cg.lastContactDate || null,
-    churchId: cg.churchId,
-    churchName: db.churches.find(ch => ch.id === cg.churchId)?.name,
-    email: cg.email,
-    phone: cg.phone,
-    fullRecord: cg,
-  }));
-  const churches = db.churches.map(ch => ({
+// The database lists churches only — staff, congregants and all other
+// datapoints live inside each church profile.
+function getChurchRecords() {
+  return db.churches.map(ch => ({
     id: ch.id,
     name: ch.name,
     sub: `${ch.city}, ${ch.state}`,
-    typeKey: 'church',
-    typeLabel: 'Churches',
     lastContact: ch.lastInteractionDate || null,
-    phone: ch.phone,
-    email: ch.email,
-    website: ch.website,
-    denomination: ch.denomination,
     engagementStatus: ch.engagementStatus,
     fullRecord: ch,
   }));
-  return [...churches, ...contacts, ...congregants];
 }
-
-const FILTERS = [
-  { key: 'all', label: 'All' },
-  { key: 'pastor', label: 'Pastors' },
-  { key: 'staff', label: 'Staff' },
-  { key: 'congregant', label: 'Congregants' },
-  { key: 'church', label: 'Churches' },
-];
 
 function DirectoryWidget({ activeDir, onSelectDir }) {
   const counts = getDirectoryCounts();
@@ -132,39 +88,24 @@ function DirectoryWidget({ activeDir, onSelectDir }) {
   );
 }
 
-function RecordForm({ record, type, onSave, onCancel }) {
-  const [formData, setFormData] = useState(record || {});
-
-  const handleChange = (field, value) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
+function AddChurchForm({ onSave, onCancel }) {
+  const [formData, setFormData] = useState({});
+  const handleChange = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
   const handleSave = () => {
-    if (!formData.id) {
-      const timestamp = Date.now();
-      const prefix = type === 'church' ? 'ch' : type === 'congregant' ? 'cg' : 'ct';
-      formData.id = `${prefix}_${timestamp}`;
-    }
-
-    const collection = type === 'church' ? 'churches' : type === 'congregant' ? 'notableCongregants' : 'contacts';
-    const existing = db[collection].findIndex(r => r.id === formData.id);
-    if (existing >= 0) {
-      db[collection][existing] = formData;
-    } else {
-      db[collection].push(formData);
-    }
-    saveRecord(collection, formData);
+    if (!formData.id) formData.id = `ch_${Date.now()}`;
+    if (!formData.engagementStatus) formData.engagementStatus = 'unreached';
+    const existing = db.churches.findIndex(r => r.id === formData.id);
+    if (existing >= 0) db.churches[existing] = formData;
+    else db.churches.push(formData);
+    saveRecord('churches', formData);
     onSave();
   };
 
-  const commonFields = [
+  const fields = [
     { label: 'Name', key: 'name', required: true },
     { label: 'Email', key: 'email', type: 'email' },
     { label: 'Phone', key: 'phone' },
-  ];
-
-  const churchFields = [
-    ...commonFields,
     { label: 'Address', key: 'address' },
     { label: 'City', key: 'city' },
     { label: 'State', key: 'state' },
@@ -173,32 +114,16 @@ function RecordForm({ record, type, onSave, onCancel }) {
     { label: 'Denomination', key: 'denomination' },
     { label: 'Min Attendance', key: 'attendanceMin', type: 'number' },
     { label: 'Max Attendance', key: 'attendanceMax', type: 'number' },
-    { label: 'Engagement Status', key: 'engagementStatus' },
+    {
+      label: 'Engagement Status', key: 'engagementStatus', type: 'select',
+      options: ENGAGEMENT_STATUS_FILTERS.filter(f => f.value !== 'all').map(f => ({ value: f.value, label: f.label })),
+    },
     { label: 'Notes', key: 'notes', type: 'textarea' },
   ];
 
-  const contactFields = [
-    ...commonFields,
-    { label: 'Title', key: 'title' },
-    { label: 'Church ID', key: 'churchId' },
-    { label: 'KFA Role', key: 'kfaRole' },
-  ];
-
-  const congregantFields = [
-    ...commonFields,
-    { label: 'Category', key: 'category' },
-    { label: 'Title', key: 'title' },
-    { label: 'Church ID', key: 'churchId' },
-  ];
-
-  const fields = type === 'church' ? churchFields : type === 'congregant' ? congregantFields : contactFields;
-
-  const title = record?.id ? 'Edit' : 'Add';
-  const typeLabel = type === 'church' ? 'Church' : type === 'congregant' ? 'Congregant' : 'Contact';
-
   return (
     <FormModal
-      title={`${title} ${typeLabel}`}
+      title="Add Church"
       fields={fields}
       formData={formData}
       onChange={handleChange}
@@ -208,197 +133,48 @@ function RecordForm({ record, type, onSave, onCancel }) {
   );
 }
 
-function RecordDetailModal({ record, onClose, onEdit }) {
-  if (!record) return null;
+// Church profile shown as a popup. Dismiss by clicking the backdrop, pressing
+// Escape, or the browser Back button — all routed through history so a pushed
+// entry is consumed exactly once.
+function ChurchProfileModal({ churchId, onClose }) {
+  useEffect(() => {
+    window.history.pushState({ churchModal: churchId }, '');
+    const onPop = () => onClose();
+    const onKey = (e) => { if (e.key === 'Escape') window.history.back(); };
+    window.addEventListener('popstate', onPop);
+    window.addEventListener('keydown', onKey);
+    return () => {
+      window.removeEventListener('popstate', onPop);
+      window.removeEventListener('keydown', onKey);
+    };
+  }, [churchId, onClose]);
+
+  const requestClose = () => window.history.back();
 
   return (
-    <div className="modal-overlay" onClick={onClose} style={{
-      position: 'fixed',
-      top: 0,
-      left: 0,
-      right: 0,
-      bottom: 0,
-      backgroundColor: 'rgba(0, 0, 0, 0.5)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      zIndex: 1000,
-    }}>
-      <div className="modal-content" onClick={e => e.stopPropagation()} style={{
-        backgroundColor: 'white',
-        borderRadius: '12px',
-        width: '90%',
-        maxWidth: '600px',
-        maxHeight: '80vh',
-        overflow: 'auto',
-        boxShadow: '0 20px 25px rgba(0, 0, 0, 0.15)',
-      }}>
-        <div style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '24px',
-          borderBottom: '1px solid var(--border)',
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-            <AvatarInitials name={record.name} size="md" />
-            <div>
-              <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>{record.name}</h2>
-              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '14px' }}>{record.sub}</p>
-            </div>
-          </div>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-            <button onClick={() => onEdit(record)} style={{
-              background: 'none',
-              border: '1px solid var(--border)',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              padding: '6px 12px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: 6,
-              fontSize: '14px',
-              fontWeight: 500,
-            }}>
-              <IconEdit stroke={1.5} size={16} />
-              Edit
-            </button>
-            <button onClick={onClose} style={{
-              background: 'none',
-              border: 'none',
-              cursor: 'pointer',
-              padding: 8,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--text-tertiary)',
-            }}>
-              <IconX stroke={1.5} size={20} />
-            </button>
-          </div>
-        </div>
-
-        <div style={{ padding: '24px' }}>
-          {/* Type and Status */}
-          <div style={{ marginBottom: 24 }}>
-            <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Type</p>
-            <span style={{ color: 'var(--text-primary)' }}>{record.typeLabel}</span>
-          </div>
-
-          {/* Contact Info */}
-          {(record.email || record.phone) && (
-            <div style={{ marginBottom: 24 }}>
-              <p style={{ margin: '0 0 12px 0', fontSize: '12px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Contact</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-                {record.email && (
-                  <a href={`mailto:${record.email}`} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    color: 'var(--primary-500)',
-                    textDecoration: 'none',
-                    fontSize: '14px',
-                  }}>
-                    <IconMail stroke={1.5} size={16} />
-                    {record.email}
-                  </a>
-                )}
-                {record.phone && (
-                  <a href={`tel:${record.phone}`} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 8,
-                    color: 'var(--primary-500)',
-                    textDecoration: 'none',
-                    fontSize: '14px',
-                  }}>
-                    <IconPhone stroke={1.5} size={16} />
-                    {record.phone}
-                  </a>
-                )}
-              </div>
-            </div>
-          )}
-
-          {/* Church */}
-          {record.churchName && (
-            <div style={{ marginBottom: 24 }}>
-              <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Church</p>
-              <span style={{ color: 'var(--text-primary)' }}>{record.churchName}</span>
-            </div>
-          )}
-
-          {/* Location */}
-          {(record.city || record.state) && (
-            <div style={{ marginBottom: 24 }}>
-              <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Location</p>
-              <span style={{ color: 'var(--text-primary)' }}>
-                {record.city}{record.city && record.state ? ', ' : ''}{record.state}
-              </span>
-            </div>
-          )}
-
-          {/* Denomination */}
-          {record.denomination && (
-            <div style={{ marginBottom: 24 }}>
-              <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Denomination</p>
-              <span style={{ color: 'var(--text-primary)' }}>{record.denomination}</span>
-            </div>
-          )}
-
-          {/* Website */}
-          {record.website && (
-            <div style={{ marginBottom: 24 }}>
-              <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Website</p>
-              <a href={record.website} target="_blank" rel="noopener noreferrer" style={{
-                color: 'var(--primary-500)',
-                textDecoration: 'none',
-                fontSize: '14px',
-              }}>
-                {record.website}
-              </a>
-            </div>
-          )}
-
-          {/* Last Contact */}
-          {record.lastContact && (
-            <div style={{ marginBottom: 24 }}>
-              <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: 600, color: 'var(--text-tertiary)', textTransform: 'uppercase' }}>Last Contact</p>
-              <span style={{ color: 'var(--text-primary)' }}>{fmtDate(record.lastContact)}</span>
-            </div>
-          )}
-        </div>
+    <div className="church-modal-overlay" onClick={requestClose}>
+      <div className="church-modal" onClick={e => e.stopPropagation()}>
+        <button className="church-modal-close" onClick={requestClose} aria-label="Close">
+          <IconX stroke={1.75} />
+        </button>
+        <ChurchProfile churchId={churchId} />
       </div>
     </div>
   );
 }
 
-function DatabaseWidget({ typeFilter, setTypeFilter, statusFilter, setStatusFilter }) {
-  const navigate = useNavigate();
+function DatabaseWidget({ statusFilter, setStatusFilter }) {
   const [search, setSearch] = useState('');
   const [sortField, setSortField] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
-  const [selectedRecord, setSelectedRecord] = useState(null);
-  const [editingRecord, setEditingRecord] = useState(null);
-  const [addingType, setAddingType] = useState(null);
-  const allRecords = getAllRecords();
+  const [profileId, setProfileId] = useState(null);
+  const [adding, setAdding] = useState(false);
+  const records = getChurchRecords();
 
-  const counts = {
-    all: allRecords.length,
-    pastor: allRecords.filter(r => r.typeKey === 'pastor').length,
-    staff: allRecords.filter(r => r.typeKey === 'staff').length,
-    congregant: allRecords.filter(r => r.typeKey === 'congregant').length,
-    church: allRecords.filter(r => r.typeKey === 'church').length,
-  };
-
-  // When a non-"all" engagement status is selected, restrict to churches only.
   const statusActive = statusFilter && statusFilter !== 'all';
-  let filtered;
-  if (statusActive) {
-    filtered = allRecords.filter(r => r.typeKey === 'church' && r.engagementStatus === statusFilter);
-  } else {
-    filtered = typeFilter === 'all' ? allRecords : allRecords.filter(r => r.typeKey === typeFilter);
-  }
+  let filtered = statusActive
+    ? records.filter(r => r.engagementStatus === statusFilter)
+    : records;
 
   if (search) {
     const q = search.toLowerCase();
@@ -407,103 +183,58 @@ function DatabaseWidget({ typeFilter, setTypeFilter, statusFilter, setStatusFilt
 
   filtered = [...filtered].sort((a, b) => {
     let aVal, bVal;
-    if (sortField === 'name') {
-      aVal = a.name.toLowerCase();
-      bVal = b.name.toLowerCase();
-    } else if (sortField === 'type') {
-      aVal = a.typeLabel;
-      bVal = b.typeLabel;
-    } else if (sortField === 'lastContact') {
+    if (sortField === 'lastContact') {
       aVal = a.lastContact || '';
       bVal = b.lastContact || '';
+    } else {
+      aVal = a.name.toLowerCase();
+      bVal = b.name.toLowerCase();
     }
-
     if (aVal < bVal) return sortDir === 'asc' ? -1 : 1;
     if (aVal > bVal) return sortDir === 'asc' ? 1 : -1;
     return 0;
   });
 
   const toggleSort = (field) => {
-    if (sortField === field) {
-      setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortDir('asc');
-    }
+    if (sortField === field) setSortDir(sortDir === 'asc' ? 'desc' : 'asc');
+    else { setSortField(field); setSortDir('asc'); }
   };
 
   const SortHeader = ({ field, label }) => (
-    <th
-      onClick={() => toggleSort(field)}
-      style={{ cursor: 'pointer', userSelect: 'none', position: 'relative' }}
-    >
+    <th onClick={() => toggleSort(field)} style={{ cursor: 'pointer', userSelect: 'none', position: 'relative' }}>
       {label}
       {sortField === field && (
-        <span style={{ marginLeft: 6, fontSize: '12px' }}>
-          {sortDir === 'asc' ? '▲' : '▼'}
-        </span>
+        <span style={{ marginLeft: 6, fontSize: '12px' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>
       )}
     </th>
   );
-
-  const openRecord = (r) => {
-    if (r.typeKey === 'church') {
-      navigate(`/churches/${r.id}`);
-    } else {
-      setSelectedRecord(r);
-    }
-  };
 
   return (
     <div className="card">
       <div className="db-card-inner">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
           <div className="db-card-title">Database</div>
-          <div style={{ display: 'flex', gap: 6 }}>
-            <button
-              className="btn sm"
-              onClick={() => setAddingType('church')}
-              title="Add church"
-              style={{ padding: '6px 12px' }}
-            >
-              <IconBuildingChurch stroke={1.75} size={16} />
-            </button>
-            <button
-              className="btn sm"
-              onClick={() => setAddingType('contact')}
-              title="Add pastor/staff"
-              style={{ padding: '6px 12px' }}
-            >
-              <IconUsers stroke={1.75} size={16} />
-            </button>
-            <button
-              className="btn sm"
-              onClick={() => setAddingType('congregant')}
-              title="Add congregant"
-              style={{ padding: '6px 12px' }}
-            >
-              <IconHeartHandshake stroke={1.75} size={16} />
-            </button>
-          </div>
+          <button className="btn sm" onClick={() => setAdding(true)} title="Add church" style={{ padding: '6px 12px' }}>
+            <IconPlus stroke={1.75} size={16} /> Add church
+          </button>
         </div>
         <div className="search-bar">
           <IconSearch stroke={1.75} />
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Search all records..."
+            placeholder="Search churches..."
           />
         </div>
         <div className="db-filter-row">
           <div className="db-filter-pills">
-            {FILTERS.map(f => (
+            {ENGAGEMENT_STATUS_FILTERS.map(f => (
               <button
-                key={f.key}
-                className={`db-filter-pill${!statusActive && typeFilter === f.key ? ' active' : ''}`}
-                onClick={() => { setStatusFilter('all'); setTypeFilter(f.key); }}
+                key={f.value}
+                className={`db-filter-pill${statusFilter === f.value ? ' active' : ''}`}
+                onClick={() => setStatusFilter(f.value)}
               >
                 {f.label}
-                <span className="db-pill-count">{counts[f.key]}</span>
               </button>
             ))}
           </div>
@@ -512,43 +243,28 @@ function DatabaseWidget({ typeFilter, setTypeFilter, statusFilter, setStatusFilt
             Berks
           </div>
         </div>
-        <div className="db-status-pills">
-          {ENGAGEMENT_STATUS_FILTERS.map(f => (
-            <button
-              key={f.value}
-              className={`db-filter-pill${(statusActive ? statusFilter === f.value : f.value === 'all' && !statusActive) ? ' active' : ''}`}
-              onClick={() => setStatusFilter(f.value)}
-            >
-              {f.label}
-            </button>
-          ))}
-        </div>
       </div>
       <table className="data-table">
         <thead>
           <tr>
-            <SortHeader field="name" label="NAME" />
-            <SortHeader field="type" label="TYPE" />
+            <SortHeader field="name" label="CHURCH" />
+            <th>STATUS</th>
             <SortHeader field="lastContact" label="LAST CONTACT" />
             <th style={{ width: 32 }} />
           </tr>
         </thead>
         <tbody>
           {filtered.map(r => {
-            const eng = r.typeKey === 'church' ? ENGAGEMENT_STATUS[r.engagementStatus] : null;
+            const eng = ENGAGEMENT_STATUS[r.engagementStatus];
             return (
-              <tr key={r.id} className="clickable" onClick={() => openRecord(r)}>
+              <tr key={r.id} className="clickable" onClick={() => setProfileId(r.id)}>
                 <td>
                   <div className="cell-stack">
                     <div className="cell-primary">{r.name}</div>
                     <div className="cell-secondary">{r.sub}</div>
                   </div>
                 </td>
-                <td>
-                  {eng
-                    ? <Badge label={eng.label} variant={eng.variant} />
-                    : <span className="db-type-link">{r.typeLabel}</span>}
-                </td>
+                <td>{eng ? <Badge label={eng.label} variant={eng.variant} /> : <span className="cell-muted">—</span>}</td>
                 <td>
                   <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
                     <ContactDot status={contactStatus(r.lastContact)} date={r.lastContact ? fmtDate(r.lastContact) : null} />
@@ -563,37 +279,13 @@ function DatabaseWidget({ typeFilter, setTypeFilter, statusFilter, setStatusFilt
               </tr>
             );
           })}
+          {filtered.length === 0 && (
+            <tr><td colSpan={4} className="cell-muted" style={{ textAlign: 'center', padding: 24 }}>No churches match.</td></tr>
+          )}
         </tbody>
       </table>
-      {editingRecord && (
-        <RecordForm
-          record={editingRecord}
-          type={editingRecord.typeKey}
-          onSave={() => {
-            setEditingRecord(null);
-            setSelectedRecord(null);
-          }}
-          onCancel={() => setEditingRecord(null)}
-        />
-      )}
-      {addingType && (
-        <RecordForm
-          type={addingType}
-          onSave={() => {
-            setAddingType(null);
-          }}
-          onCancel={() => setAddingType(null)}
-        />
-      )}
-      {selectedRecord && !editingRecord && !addingType && (
-        <RecordDetailModal
-          record={selectedRecord}
-          onClose={() => setSelectedRecord(null)}
-          onEdit={(record) => {
-            setEditingRecord(record);
-          }}
-        />
-      )}
+      {adding && <AddChurchForm onSave={() => setAdding(false)} onCancel={() => setAdding(false)} />}
+      {profileId && <ChurchProfileModal churchId={profileId} onClose={() => setProfileId(null)} />}
     </div>
   );
 }
@@ -736,7 +428,6 @@ export default function Dashboard() {
   const todoRef = useRef(null);
 
   // Lifted shared filter state.
-  const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [todoFilter, setTodoFilter] = useState('all');
   const [activeDir, setActiveDir] = useState(null);
@@ -744,7 +435,6 @@ export default function Dashboard() {
   const handleSelectDir = (key) => {
     setActiveDir(prev => (prev === key ? null : key));
     if (key === 'partner') {
-      setTypeFilter('church');
       setStatusFilter('partnering');
     } else if (key === 'open') {
       setTodoFilter('open');
@@ -769,8 +459,6 @@ export default function Dashboard() {
         </div>
         <div className="overview-right">
           <DatabaseWidget
-            typeFilter={typeFilter}
-            setTypeFilter={setTypeFilter}
             statusFilter={statusFilter}
             setStatusFilter={setStatusFilter}
           />

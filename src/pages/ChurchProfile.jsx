@@ -325,14 +325,6 @@ function StaffTab({ church }) {
   const [isAdding, setIsAdding] = useState(false);
   const contacts = getContactsByChurch(church.id);
 
-  if (!contacts.length && !isAdding) {
-    return (
-      <div className="card">
-        <EmptyState icon={IconUserCircle} title="No staff contacts yet" sub="Add the first staff member for this church." />
-      </div>
-    );
-  }
-
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
@@ -352,6 +344,11 @@ function StaffTab({ church }) {
             setIsAdding(false);
           }}
         />
+      )}
+      {!contacts.length && !isAdding && (
+        <div className="card">
+          <EmptyState icon={IconUserCircle} title="No staff contacts yet" sub="Add the first staff member for this church." />
+        </div>
       )}
       <div className="people-grid">
         {contacts.map(p => {
@@ -729,9 +726,11 @@ function TasksTab({ church }) {
   );
 }
 
-export default function ChurchProfile() {
+export default function ChurchProfile({ churchId }) {
   useDb();
-  const { id } = useParams();
+  const params = useParams();
+  const id = churchId || params.id;
+  const isModal = !!churchId;
   const [tab, setTab] = useState('Overview');
   const [logging, setLogging] = useState(false);
   const church = getChurchById(id);
@@ -752,9 +751,11 @@ export default function ChurchProfile() {
 
   return (
     <>
-      <div className="breadcrumb">
-        <Link to="/">Churches</Link> <span> / </span> {church.name}
-      </div>
+      {!isModal && (
+        <div className="breadcrumb">
+          <Link to="/">Churches</Link> <span> / </span> {church.name}
+        </div>
+      )}
       <div className="profile-header">
         <AvatarInitials name={church.name} size="lg" />
         <div className="ph-body">

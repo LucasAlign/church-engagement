@@ -937,3 +937,42 @@ textarea.select { resize: vertical; min-height: 70px; }
   max-width: 420px;
   color: var(--text-tertiary, #94a3b8);
 }
+
+/* === church profile popup modal === */
+.church-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding: 40px 20px;
+  z-index: 1200;
+  overflow-y: auto;
+}
+.church-modal {
+  position: relative;
+  background: var(--bg, #fff);
+  border-radius: 14px;
+  width: 100%;
+  max-width: 920px;
+  padding: 28px 28px 32px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.22);
+}
+.church-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: var(--gray-bg, #f1f5f9);
+  border: none;
+  border-radius: 8px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  color: var(--text-secondary, #475569);
+  z-index: 1;
+}
+.church-modal-close:hover { background: var(--gray-200, #e2e8f0); }
