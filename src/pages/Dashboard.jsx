@@ -1,23 +1,24 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   IconSearch, IconMapPin, IconChevronRight, IconRefresh, IconX,
-  IconUsers, IconBuildingChurch, IconHeartHandshake,
-  IconCheckbox, IconAlertCircle, IconPray, IconPhone, IconMail, IconEdit, IconPlus,
+  IconUsers, IconBuildingChurch,
+  IconCheckbox, IconAlertCircle, IconPhone, IconMail, IconEdit, IconPlus,
+  IconHeartHandshake,
 } from '@tabler/icons-react';
 import db from '../data/db.js';
-import { contactStatus, isTaskOverdue, getContactsByChurch } from '../data/helpers.js';
-import { fmtDate } from '../data/labels.js';
+import {
+  contactStatus, isTaskOverdue, addTask, toggleTaskCompleted,
+} from '../data/helpers.js';
+import { fmtDate, ENGAGEMENT_STATUS, ENGAGEMENT_STATUS_FILTERS, TASK_PRIORITY } from '../data/labels.js';
 import { useDb } from '../data/store.jsx';
-import { ContactDot, AvatarInitials } from '../components/shared.jsx';
+import { ContactDot, AvatarInitials, Badge } from '../components/shared.jsx';
 import { saveRecord } from '../data/backend.js';
 import FormModal from '../components/FormModal.jsx';
 
 function getDirectoryCounts() {
   return {
-    partnerChurches: db.churches.filter(c =>
-      ['active_partner', 'strategic_partner'].includes(c.engagementStatus)).length,
-    activeMinistries: db.ministryEngagements.filter(m => m.status === 'active').length,
+    partnerChurches: db.churches.filter(c => c.engagementStatus === 'partnering').length,
     openTasks: db.tasks.filter(t => t.status !== 'completed').length,
     overdueTasks: db.tasks.filter(isTaskOverdue).length,
   };
@@ -26,7 +27,6 @@ function getDirectoryCounts() {
 function getAllRecords() {
   const contacts = db.contacts.map(c => {
     const church = db.churches.find(ch => ch.id === c.churchId);
-    const isAdvocate = c.kfaRole === 'advocate' || c.kfaRole === 'champion';
     return {
       id: c.id,
       name: c.name,
@@ -65,6 +65,7 @@ function getAllRecords() {
     email: ch.email,
     website: ch.website,
     denomination: ch.denomination,
+    engagementStatus: ch.engagementStatus,
     fullRecord: ch,
   }));
   return [...churches, ...contacts, ...congregants];
@@ -78,16 +79,15 @@ const FILTERS = [
   { key: 'church', label: 'Churches' },
 ];
 
-function DirectoryWidget() {
+function DirectoryWidget({ activeDir, onSelectDir }) {
   const counts = getDirectoryCounts();
   const now = new Date();
   const timeStr = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
 
   const rows = [
-    { icon: IconBuildingChurch, label: 'Partner Churches',    count: counts.partnerChurches, color: 'green' },
-    { icon: IconHeartHandshake, label: 'Active Ministries',   count: counts.activeMinistries, color: 'blue' },
-    { icon: IconCheckbox,       label: 'Open Tasks',          count: counts.openTasks,       color: 'amber' },
-    { icon: IconAlertCircle,    label: 'Overdue Follow-ups',  count: counts.overdueTasks,    color: 'red' },
+    { key: 'partner',  icon: IconBuildingChurch, label: 'Partner Churches',   count: counts.partnerChurches, color: 'green' },
+    { key: 'open',     icon: IconCheckbox,       label: 'Open Tasks',         count: counts.openTasks,       color: 'amber' },
+    { key: 'overdue',  icon: IconAlertCircle,    label: 'Overdue Follow-ups', count: counts.overdueTasks,    color: 'red' },
   ];
 
   return (
@@ -100,13 +100,17 @@ function DirectoryWidget() {
         </span>
       </div>
       <div className="dir-list">
-        {rows.map(({ icon: Icon, label, count, color }) => (
-          <div className="dir-row" key={label}>
+        {rows.map(({ key, icon: Icon, label, count, color }) => (
+          <div
+            className={`dir-row${activeDir === key ? ' active' : ''}`}
+            key={label}
+            onClick={() => onSelectDir(key)}
+          >
             <div
               className="dir-icon"
               style={{
                 background: `var(--${color}-bg)`,
-                color: color === 'amber' ? 'var(--amber-600)' : color === 'purple' ? 'var(--purple-600)' : color === 'red' ? 'var(--red-400)' : `var(--${color}-400)`,
+                color: color === 'amber' ? 'var(--amber-600)' : color === 'red' ? 'var(--red-400)' : `var(--${color}-400)`,
               }}
             >
               <Icon stroke={1.75} />
@@ -115,7 +119,7 @@ function DirectoryWidget() {
             <span
               className="dir-count"
               style={{
-                color: color === 'amber' ? 'var(--amber-600)' : color === 'purple' ? 'var(--purple-600)' : color === 'red' ? 'var(--red-400)' : `var(--${color}-400)`,
+                color: color === 'amber' ? 'var(--amber-600)' : color === 'red' ? 'var(--red-400)' : `var(--${color}-400)`,
               }}
             >
               {count}
@@ -123,21 +127,6 @@ function DirectoryWidget() {
             <IconChevronRight stroke={1.5} className="dir-chevron" />
           </div>
         ))}
-      </div>
-    </div>
-  );
-}
-
-function PrayerSpotlightWidget() {
-  return (
-    <div className="card">
-      <div className="card-header">
-        <div className="card-title">🙏 Prayer Spotlight</div>
-      </div>
-      <div className="empty-state" style={{ padding: '32px 20px' }}>
-        <IconPray stroke={1.25} />
-        <div className="es-title">Prayer spotlight coming soon</div>
-        <div>Prayer requests will surface</div>
       </div>
     </div>
   );
@@ -384,9 +373,9 @@ function RecordDetailModal({ record, onClose, onEdit }) {
   );
 }
 
-function DatabaseWidget() {
+function DatabaseWidget({ typeFilter, setTypeFilter, statusFilter, setStatusFilter }) {
+  const navigate = useNavigate();
   const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all');
   const [sortField, setSortField] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
   const [selectedRecord, setSelectedRecord] = useState(null);
@@ -402,13 +391,21 @@ function DatabaseWidget() {
     church: allRecords.filter(r => r.typeKey === 'church').length,
   };
 
-  let filtered = filter === 'all' ? allRecords : allRecords.filter(r => r.typeKey === filter);
+  // When a non-"all" engagement status is selected, restrict to churches only.
+  const statusActive = statusFilter && statusFilter !== 'all';
+  let filtered;
+  if (statusActive) {
+    filtered = allRecords.filter(r => r.typeKey === 'church' && r.engagementStatus === statusFilter);
+  } else {
+    filtered = typeFilter === 'all' ? allRecords : allRecords.filter(r => r.typeKey === typeFilter);
+  }
+
   if (search) {
     const q = search.toLowerCase();
     filtered = filtered.filter(r => r.name.toLowerCase().includes(q) || r.sub.toLowerCase().includes(q));
   }
 
-  filtered.sort((a, b) => {
+  filtered = [...filtered].sort((a, b) => {
     let aVal, bVal;
     if (sortField === 'name') {
       aVal = a.name.toLowerCase();
@@ -449,10 +446,18 @@ function DatabaseWidget() {
     </th>
   );
 
+  const openRecord = (r) => {
+    if (r.typeKey === 'church') {
+      navigate(`/churches/${r.id}`);
+    } else {
+      setSelectedRecord(r);
+    }
+  };
+
   return (
     <div className="card">
       <div className="db-card-inner">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 16 }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
           <div className="db-card-title">Database</div>
           <div style={{ display: 'flex', gap: 6 }}>
             <button
@@ -494,8 +499,8 @@ function DatabaseWidget() {
             {FILTERS.map(f => (
               <button
                 key={f.key}
-                className={`db-filter-pill${filter === f.key ? ' active' : ''}`}
-                onClick={() => setFilter(f.key)}
+                className={`db-filter-pill${!statusActive && typeFilter === f.key ? ' active' : ''}`}
+                onClick={() => { setStatusFilter('all'); setTypeFilter(f.key); }}
               >
                 {f.label}
                 <span className="db-pill-count">{counts[f.key]}</span>
@@ -506,6 +511,17 @@ function DatabaseWidget() {
             <IconMapPin stroke={1.75} style={{ width: 12, height: 12 }} />
             Berks
           </div>
+        </div>
+        <div className="db-status-pills">
+          {ENGAGEMENT_STATUS_FILTERS.map(f => (
+            <button
+              key={f.value}
+              className={`db-filter-pill${(statusActive ? statusFilter === f.value : f.value === 'all' && !statusActive) ? ' active' : ''}`}
+              onClick={() => setStatusFilter(f.value)}
+            >
+              {f.label}
+            </button>
+          ))}
         </div>
       </div>
       <table className="data-table">
@@ -518,30 +534,35 @@ function DatabaseWidget() {
           </tr>
         </thead>
         <tbody>
-          {filtered.map(r => (
-            <tr key={r.id} className="clickable" onClick={() => setSelectedRecord(r)}>
-              <td>
-                <div className="cell-stack">
-                  <div className="cell-primary">{r.name}</div>
-                  <div className="cell-secondary">{r.sub}</div>
-                </div>
-              </td>
-              <td>
-                <span className="db-type-link">{r.typeLabel}</span>
-              </td>
-              <td>
-                <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
-                  <ContactDot status={contactStatus(r.lastContact)} date={r.lastContact ? fmtDate(r.lastContact) : null} />
-                  {r.lastContact
-                    ? <span className="db-last-badge">{fmtDate(r.lastContact)}</span>
-                    : <span className="cell-muted">Never</span>}
-                </span>
-              </td>
-              <td>
-                <IconChevronRight stroke={1.5} style={{ width: 14, height: 14, color: 'var(--text-tertiary)', display: 'block' }} />
-              </td>
-            </tr>
-          ))}
+          {filtered.map(r => {
+            const eng = r.typeKey === 'church' ? ENGAGEMENT_STATUS[r.engagementStatus] : null;
+            return (
+              <tr key={r.id} className="clickable" onClick={() => openRecord(r)}>
+                <td>
+                  <div className="cell-stack">
+                    <div className="cell-primary">{r.name}</div>
+                    <div className="cell-secondary">{r.sub}</div>
+                  </div>
+                </td>
+                <td>
+                  {eng
+                    ? <Badge label={eng.label} variant={eng.variant} />
+                    : <span className="db-type-link">{r.typeLabel}</span>}
+                </td>
+                <td>
+                  <span style={{ display: 'flex', alignItems: 'center', gap: 7 }}>
+                    <ContactDot status={contactStatus(r.lastContact)} date={r.lastContact ? fmtDate(r.lastContact) : null} />
+                    {r.lastContact
+                      ? <span className="db-last-badge">{fmtDate(r.lastContact)}</span>
+                      : <span className="cell-muted">Never</span>}
+                  </span>
+                </td>
+                <td>
+                  <IconChevronRight stroke={1.5} style={{ width: 14, height: 14, color: 'var(--text-tertiary)', display: 'block' }} />
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
       {editingRecord && (
@@ -577,26 +598,163 @@ function DatabaseWidget() {
   );
 }
 
-function ToDoWidget() {
+const TODO_FILTERS = [
+  { value: 'all', label: 'All' },
+  { value: 'open', label: 'Open' },
+  { value: 'overdue', label: 'Overdue' },
+];
+
+function ToDoWidget({ todoFilter, setTodoFilter, todoRef }) {
+  const { refresh } = useDb();
+  const [adding, setAdding] = useState(false);
+  const [title, setTitle] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [priority, setPriority] = useState('medium');
+
+  let tasks = db.tasks.filter(t => t.status !== 'completed');
+  if (todoFilter === 'overdue') {
+    tasks = tasks.filter(isTaskOverdue);
+  }
+  tasks = [...tasks].sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999'));
+
+  const handleToggle = (id) => {
+    toggleTaskCompleted(id);
+    refresh();
+  };
+
+  const handleAdd = () => {
+    if (!title.trim()) return;
+    addTask({ title: title.trim(), dueDate: dueDate || null, priority, status: 'open' });
+    setTitle('');
+    setDueDate('');
+    setPriority('medium');
+    setAdding(false);
+    refresh();
+  };
+
   return (
-    <div className="card">
+    <div className="card" ref={todoRef}>
       <div className="card-header">
         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
           <IconCheckbox stroke={1.75} style={{ width: 16, height: 16 }} />
           <span className="card-title">To-Do</span>
         </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <div className="db-filter-pills">
+            {TODO_FILTERS.map(f => (
+              <button
+                key={f.value}
+                className={`db-filter-pill${todoFilter === f.value ? ' active' : ''}`}
+                onClick={() => setTodoFilter(f.value)}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          <button className="btn sm" onClick={() => setAdding(a => !a)}>
+            <IconPlus stroke={1.75} size={14} />
+            Add task
+          </button>
+        </div>
       </div>
-      <div className="empty-state" style={{ padding: '32px 20px' }}>
-        <IconCheckbox stroke={1.25} />
-        <div className="es-title">Personal task list coming soon</div>
-        <div>To-do items will be available</div>
-      </div>
+
+      {adding && (
+        <div className="todo-add-form">
+          <input
+            className="todo-input"
+            value={title}
+            onChange={e => setTitle(e.target.value)}
+            placeholder="Task title"
+            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
+            autoFocus
+          />
+          <div className="todo-add-row">
+            <input
+              className="todo-input"
+              type="date"
+              value={dueDate}
+              onChange={e => setDueDate(e.target.value)}
+            />
+            <select
+              className="todo-input"
+              value={priority}
+              onChange={e => setPriority(e.target.value)}
+            >
+              {Object.entries(TASK_PRIORITY).map(([key, p]) => (
+                <option key={key} value={key}>{p.label}</option>
+              ))}
+            </select>
+            <button className="btn sm primary" onClick={handleAdd}>Save</button>
+          </div>
+        </div>
+      )}
+
+      {tasks.length === 0 ? (
+        <div className="empty-state" style={{ padding: '32px 20px' }}>
+          <IconCheckbox stroke={1.25} />
+          <div className="es-title">No tasks here</div>
+          <div>{todoFilter === 'overdue' ? 'Nothing overdue' : 'Add a task to get started'}</div>
+        </div>
+      ) : (
+        <div className="todo-list">
+          {tasks.map(task => {
+            const overdue = isTaskOverdue(task);
+            const church = task.churchId ? db.churches.find(c => c.id === task.churchId) : null;
+            const prio = TASK_PRIORITY[task.priority] || TASK_PRIORITY.medium;
+            return (
+              <div className={`todo-row${overdue ? ' overdue' : ''}`} key={task.id}>
+                <input
+                  type="checkbox"
+                  className="todo-check"
+                  checked={false}
+                  onChange={() => handleToggle(task.id)}
+                />
+                <div className="todo-main">
+                  <div className="todo-title">{task.title}</div>
+                  <div className="todo-meta">
+                    {church && <span className="todo-church">{church.name}</span>}
+                    {task.dueDate && (
+                      <span className={`todo-due${overdue ? ' overdue' : ''}`}>
+                        {overdue && <IconAlertCircle stroke={1.75} size={12} />}
+                        {fmtDate(task.dueDate)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Badge label={prio.label} variant={prio.variant} />
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
 
 export default function Dashboard() {
   useDb();
+  const todoRef = useRef(null);
+
+  // Lifted shared filter state.
+  const [typeFilter, setTypeFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [todoFilter, setTodoFilter] = useState('all');
+  const [activeDir, setActiveDir] = useState(null);
+
+  const handleSelectDir = (key) => {
+    setActiveDir(prev => (prev === key ? null : key));
+    if (key === 'partner') {
+      setTypeFilter('church');
+      setStatusFilter('partnering');
+    } else if (key === 'open') {
+      setTodoFilter('open');
+      todoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } else if (key === 'overdue') {
+      setTodoFilter('overdue');
+      todoRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
+
   return (
     <div>
       <div className="overview-topbar">
@@ -607,12 +765,20 @@ export default function Dashboard() {
       </div>
       <div className="overview-grid">
         <div className="overview-left">
-          <DirectoryWidget />
-          <PrayerSpotlightWidget />
+          <DirectoryWidget activeDir={activeDir} onSelectDir={handleSelectDir} />
         </div>
         <div className="overview-right">
-          <DatabaseWidget />
-          <ToDoWidget />
+          <DatabaseWidget
+            typeFilter={typeFilter}
+            setTypeFilter={setTypeFilter}
+            statusFilter={statusFilter}
+            setStatusFilter={setStatusFilter}
+          />
+          <ToDoWidget
+            todoFilter={todoFilter}
+            setTodoFilter={setTodoFilter}
+            todoRef={todoRef}
+          />
         </div>
       </div>
     </div>
