@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import {
   IconSearch, IconMapPin, IconChevronRight, IconRefresh, IconX,
   IconBuildingChurch, IconCheckbox, IconAlertCircle, IconPlus,
+  IconUpload, IconDownload,
 } from '@tabler/icons-react';
 import db from '../data/db.js';
 import {
@@ -10,8 +11,8 @@ import {
 import { fmtDate, ENGAGEMENT_STATUS, ENGAGEMENT_STATUS_FILTERS, TASK_PRIORITY } from '../data/labels.js';
 import { useDb } from '../data/store.jsx';
 import { ContactDot, Badge } from '../components/shared.jsx';
-import { saveRecord } from '../data/backend.js';
-import FormModal from '../components/FormModal.jsx';
+import ChurchForm from '../components/ChurchForm.jsx';
+import { ImportModal, ExportModal } from '../components/ImportExportModals.jsx';
 import ChurchProfile from './ChurchProfile.jsx';
 
 function getDirectoryCounts() {
@@ -88,51 +89,6 @@ function DirectoryWidget({ activeDir, onSelectDir }) {
   );
 }
 
-function AddChurchForm({ onSave, onCancel }) {
-  const [formData, setFormData] = useState({});
-  const handleChange = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
-
-  const handleSave = () => {
-    if (!formData.id) formData.id = `ch_${Date.now()}`;
-    if (!formData.engagementStatus) formData.engagementStatus = 'unreached';
-    const existing = db.churches.findIndex(r => r.id === formData.id);
-    if (existing >= 0) db.churches[existing] = formData;
-    else db.churches.push(formData);
-    saveRecord('churches', formData);
-    onSave();
-  };
-
-  const fields = [
-    { label: 'Name', key: 'name', required: true },
-    { label: 'Email', key: 'email', type: 'email' },
-    { label: 'Phone', key: 'phone' },
-    { label: 'Address', key: 'address' },
-    { label: 'City', key: 'city' },
-    { label: 'State', key: 'state' },
-    { label: 'Zip', key: 'zip' },
-    { label: 'Website', key: 'website' },
-    { label: 'Denomination', key: 'denomination' },
-    { label: 'Min Attendance', key: 'attendanceMin', type: 'number' },
-    { label: 'Max Attendance', key: 'attendanceMax', type: 'number' },
-    {
-      label: 'Engagement Status', key: 'engagementStatus', type: 'select',
-      options: ENGAGEMENT_STATUS_FILTERS.filter(f => f.value !== 'all').map(f => ({ value: f.value, label: f.label })),
-    },
-    { label: 'Notes', key: 'notes', type: 'textarea' },
-  ];
-
-  return (
-    <FormModal
-      title="Add Church"
-      fields={fields}
-      formData={formData}
-      onChange={handleChange}
-      onSave={handleSave}
-      onCancel={onCancel}
-    />
-  );
-}
-
 // Church profile shown as a popup. Dismiss by clicking the backdrop, pressing
 // Escape, or the browser Back button — all routed through history so a pushed
 // entry is consumed exactly once.
@@ -169,6 +125,8 @@ function DatabaseWidget({ statusFilter, setStatusFilter }) {
   const [sortDir, setSortDir] = useState('asc');
   const [profileId, setProfileId] = useState(null);
   const [adding, setAdding] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const records = getChurchRecords();
 
   const statusActive = statusFilter && statusFilter !== 'all';
@@ -214,9 +172,17 @@ function DatabaseWidget({ statusFilter, setStatusFilter }) {
       <div className="db-card-inner">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
           <div className="db-card-title">Database</div>
-          <button className="btn sm" onClick={() => setAdding(true)} title="Add church" style={{ padding: '6px 12px' }}>
-            <IconPlus stroke={1.75} size={16} /> Add church
-          </button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="btn sm" onClick={() => setImporting(true)} title="Import from CSV/Excel">
+              <IconUpload stroke={1.75} size={16} /> Import
+            </button>
+            <button className="btn sm" onClick={() => setExporting(true)} title="Export to CSV/Excel">
+              <IconDownload stroke={1.75} size={16} /> Export
+            </button>
+            <button className="btn sm primary" onClick={() => setAdding(true)} title="Add church">
+              <IconPlus stroke={1.75} size={16} /> Add church
+            </button>
+          </div>
         </div>
         <div className="search-bar">
           <IconSearch stroke={1.75} />
@@ -284,7 +250,9 @@ function DatabaseWidget({ statusFilter, setStatusFilter }) {
           )}
         </tbody>
       </table>
-      {adding && <AddChurchForm onSave={() => setAdding(false)} onCancel={() => setAdding(false)} />}
+      {adding && <ChurchForm onSave={() => setAdding(false)} onCancel={() => setAdding(false)} />}
+      {importing && <ImportModal onClose={() => setImporting(false)} />}
+      {exporting && <ExportModal onClose={() => setExporting(false)} />}
       {profileId && <ChurchProfileModal churchId={profileId} onClose={() => setProfileId(null)} />}
     </div>
   );

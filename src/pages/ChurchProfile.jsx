@@ -20,6 +20,7 @@ import {
 import { Badge, MetricCard, AvatarInitials, EmptyState, ContactDot } from '../components/shared.jsx';
 import LogInteractionModal from '../components/LogInteractionModal.jsx';
 import FormModal from '../components/FormModal.jsx';
+import ChurchForm from '../components/ChurchForm.jsx';
 import { useDb } from '../data/store.jsx';
 import db from '../data/db.js';
 import { saveRecord } from '../data/backend.js';
@@ -727,12 +728,13 @@ function TasksTab({ church }) {
 }
 
 export default function ChurchProfile({ churchId }) {
-  useDb();
+  const { refresh } = useDb();
   const params = useParams();
   const id = churchId || params.id;
   const isModal = !!churchId;
   const [tab, setTab] = useState('Overview');
   const [logging, setLogging] = useState(false);
+  const [editing, setEditing] = useState(false);
   const church = getChurchById(id);
 
   if (!church) {
@@ -743,7 +745,7 @@ export default function ChurchProfile({ churchId }) {
     );
   }
 
-  const status = ENGAGEMENT_STATUS[church.engagementStatus];
+  const status = ENGAGEMENT_STATUS[church.engagementStatus] || { label: church.engagementStatus || 'Unknown', variant: 'gray' };
   const giving = getChurchGivingSummary(church.id);
   const givingStatus = GIVING_STATUS[giving.givingStatus];
   const coordinator = church.assignedCoordinatorId ? getUserById(church.assignedCoordinatorId) : null;
@@ -773,7 +775,7 @@ export default function ChurchProfile({ churchId }) {
           </div>
         </div>
         <div className="page-actions">
-          <button className="btn"><IconPencil stroke={1.75} /> Edit</button>
+          <button className="btn" onClick={() => setEditing(true)}><IconPencil stroke={1.75} /> Edit</button>
         </div>
       </div>
       <div className="tab-nav">
@@ -790,6 +792,7 @@ export default function ChurchProfile({ churchId }) {
       {tab === 'Notes' && <NotesTab church={church} />}
       {tab === 'Tasks' && <TasksTab church={church} />}
       {logging && <LogInteractionModal churchId={church.id} onClose={() => setLogging(false)} />}
+      {editing && <ChurchForm church={church} onSave={() => { setEditing(false); refresh(); }} onCancel={() => setEditing(false)} />}
     </>
   );
 }
