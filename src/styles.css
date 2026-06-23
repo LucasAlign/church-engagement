@@ -887,3 +887,53 @@ textarea.select { resize: vertical; min-height: 70px; }
 @media (max-width: 640px) {
   .profile-form .form-grid { grid-template-columns: 1fr; }
 }
+
+/* === analytics === */
+.analytics-placeholders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+.analytics-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px dashed var(--gray-400, #cbd5e1);
+  border-radius: 8px;
+  background: var(--gray-50, #f8fafc);
+}
+.analytics-chip-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+}
+.analytics-chip-sub {
+  font-size: 11px;
+  color: var(--text-tertiary, #94a3b8);
+}
+.analytics-map-placeholder {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  min-height: 140px;
+  padding: 20px;
+  border: 1px dashed var(--gray-400, #cbd5e1);
+  border-radius: 10px;
+  background: var(--gray-50, #f8fafc);
+}
+.analytics-map-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary, #64748b);
+}
+.analytics-map-body {
+  font-size: 12px;
+  line-height: 1.5;
+  max-width: 420px;
+  color: var(--text-tertiary, #94a3b8);
+}
