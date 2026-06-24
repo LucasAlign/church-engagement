@@ -39,19 +39,27 @@ export async function initBackend() {
   if (!supabase) return;
   const results = await Promise.all(Object.entries(TABLES).map(async ([collection, table]) => {
     const { data, error } = await supabase.from(table).select('id, data');
-    if (error) throw new Error(`Loading ${table} failed: ${error.message}`);
+    if (error) {
+      // A single missing/inaccessible table must NOT take down the whole
+      // backend (which would drop the app to demo mode). Skip this collection
+      // and keep every other table in remote mode.
+      console.warn(`Loading ${table} failed — skipping this table: ${error.message}`);
+      return [collection, null];
+    }
     return [collection, data];
   }));
-  if (results.every(([, rows]) => rows.length === 0)) {
+  // Seed only a genuinely empty project: every table present (no errors) and empty.
+  if (results.every(([, rows]) => rows && rows.length === 0)) {
     for (const [collection, table] of Object.entries(TABLES)) {
       const rows = db[collection].map(r => ({ id: r.id, data: r }));
       if (!rows.length) continue;
       const { error } = await supabase.from(table).upsert(rows);
-      if (error) throw new Error(`Seeding ${table} failed: ${error.message}`);
+      if (error) console.warn(`Seeding ${table} failed — skipping: ${error.message}`);
     }
     return;
   }
   for (const [collection, rows] of results) {
+    if (!rows) continue; // table errored above — leave in-memory contents as-is
     db[collection].length = 0;
     db[collection].push(...rows.map(r => r.data));
   }
