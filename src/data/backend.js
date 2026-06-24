@@ -19,6 +19,7 @@ const TABLES = {
   connections: 'connections',
   impactReports: 'impact_reports',
   churchNotes: 'church_notes',
+  notableCongregants: 'notable_congregants',
   users: 'app_users',
 };
 
