@@ -15,7 +15,7 @@ begin
   foreach t in array array[
     'churches', 'contacts', 'interactions', 'tasks', 'giving_records',
     'ministry_engagements', 'care_communities', 'advocates', 'connections',
-    'impact_reports', 'church_notes', 'app_users'
+    'impact_reports', 'church_notes', 'notable_congregants', 'app_users'
   ] loop
     execute format('create table if not exists public.%I (id text primary key, data jsonb not null)', t);
     execute format('alter table public.%I enable row level security', t);
