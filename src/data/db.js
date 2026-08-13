@@ -13,9 +13,7 @@ const db = {
   impactReports: [],
   churchNotes: [],
   notableCongregants: [],
-  users: [
-    { id: 'usr_001', name: 'Sarah Chen', role: 'County Coordinator', email: 's.chen@keystonefamilyalliance.org', county: 'Berks', initials: 'SC' },
-  ],
+  users: [],
 };
 
 export default db;

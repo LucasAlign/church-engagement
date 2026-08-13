@@ -110,8 +110,9 @@ export default function FormModal({
                   }}
                 />
               ) : field.type === 'select' ? (
+                <>
                 <select
-                  value={formData[field.key] || ''}
+                  value={field.allowCustom && formData[field.key] && !field.options?.some(opt => opt.value === formData[field.key]) ? "__custom__" : (formData[field.key] || "")}
                   onChange={e => handleFieldChange(field.key, e.target.value)}
                   disabled={isLoading}
                   style={{
@@ -126,12 +127,30 @@ export default function FormModal({
                     cursor: isLoading ? 'not-allowed' : 'auto',
                   }}
                 >
+                  <option value="">{field.placeholder || 'Select an option'}</option>
                   {field.options && field.options.map(opt => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
                   ))}
+                  {field.allowCustom && <option value="__custom__">Other — enter a custom value</option>}
                 </select>
+                {field.allowCustom && formData[field.key] && !field.options?.some(opt => opt.value === formData[field.key]) && (
+                  <input
+                    autoFocus
+                    type="text"
+                    value={formData[field.key] === "__custom__" ? "" : formData[field.key]}
+                    onChange={e => handleFieldChange(field.key, e.target.value)}
+                    placeholder="Enter custom value"
+                    disabled={isLoading}
+                    style={{
+                      width: "100%", marginTop: 8, padding: "8px 12px",
+                      border: "1px solid var(--border)", borderRadius: 6,
+                      fontSize: 14, fontFamily: "inherit", boxSizing: "border-box",
+                    }}
+                  />
+                )}
+                </>
               ) : (
                 <input
                   type={field.type || 'text'}

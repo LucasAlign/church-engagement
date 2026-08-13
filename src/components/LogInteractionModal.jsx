@@ -9,7 +9,7 @@ import { Modal } from './shared.jsx';
 export default function LogInteractionModal({ churchId, onClose }) {
   const { refresh } = useDb();
   const [form, setForm] = useState({
-    churchId: churchId || db.churches[0].id,
+    churchId: churchId || db.churches[0]?.id || '',
     type: 'meeting',
     date: TODAY,
     notes: '',
@@ -18,7 +18,7 @@ export default function LogInteractionModal({ churchId, onClose }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const save = () => {
-    if (!form.notes.trim()) return;
+    if (!form.churchId || !form.notes.trim()) return;
     addInteraction(form);
     if (form.type === 'impact_report') {
       addImpactReport({ churchId: form.churchId, year: Number(reportYear), notes: form.notes });

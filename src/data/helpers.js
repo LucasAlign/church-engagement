@@ -197,6 +197,17 @@ export function addTask({ churchId, title, dueDate, priority, status, assignedTo
 export function updateTask(id, fields) {
   const t = db.tasks.find(x => x.id === id); if (t) { Object.assign(t, fields); saveRecord('tasks', t); } notifyDb();
 }
+export function deleteTask(id) {
+  const index = db.tasks.findIndex(task => task.id === id);
+  if (index < 0) return;
+  db.tasks.splice(index, 1);
+  localStorage.removeItem("task-completed-" + id);
+  fetch("/api/tasks/" + id, { method: "DELETE" }).catch(error => console.error("Deleting task failed:", error));
+  notifyDb();
+}
+export function getTaskCompletedAt(task) {
+  return task.completedAt || localStorage.getItem("task-completed-" + task.id);
+}
 export function addImpactReport({ churchId, year, fileUrl, notes }) {
   const rec = { id: genId('rpt'), churchId, year, fileUrl: fileUrl || null, notes: notes || null, createdAt: TODAY };
   db.impactReports.push(rec); saveRecord('impactReports', rec); notifyDb();
@@ -210,7 +221,7 @@ export function updateUser(id, fields) {
 
 export function addInteraction({ churchId, type, date, notes }) {
   const rec = {
-    id: genId('int'), churchId, contactId: null, type, date, userId: 'usr_001', notes, attendeeCount: null,
+    id: genId('int'), churchId, contactId: null, type, date, userId: db.users[0]?.id || null, notes, attendeeCount: null,
   };
   db.interactions.unshift(rec); saveRecord('interactions', rec);
   const church = getChurchById(churchId);
@@ -218,7 +229,7 @@ export function addInteraction({ churchId, type, date, notes }) {
 }
 export function addNote({ churchId, body, pinned, internalOnly }) {
   const rec = {
-    id: genId('note'), churchId, body, authorId: 'usr_001', pinned, internalOnly, createdAt: TODAY,
+    id: genId('note'), churchId, body, authorId: db.users[0]?.id || null, pinned, internalOnly, createdAt: TODAY,
   };
   db.churchNotes.unshift(rec); saveRecord('churchNotes', rec);
 }
@@ -226,5 +237,12 @@ export function toggleTaskCompleted(taskId) {
   const task = db.tasks.find(t => t.id === taskId);
   if (!task) return;
   task.status = task.status === 'completed' ? 'open' : 'completed';
+  if (task.status === 'completed') {
+    task.completedAt = new Date().toISOString();
+    localStorage.setItem("task-completed-" + task.id, task.completedAt);
+  } else {
+    task.completedAt = null;
+    localStorage.removeItem("task-completed-" + task.id);
+  }
   saveRecord('tasks', task);
 }

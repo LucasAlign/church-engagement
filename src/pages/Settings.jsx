@@ -8,12 +8,13 @@ import { useDb } from '../data/store.jsx';
 export default function Settings() {
   const { refresh } = useDb();
   const me = getUserById('usr_001');
-  const [name, setName] = useState(me.name);
-  const [email, setEmail] = useState(me.email);
+  const [name, setName] = useState(me?.name || '');
+  const [email, setEmail] = useState(me?.email || '');
   const [saved, setSaved] = useState(false);
 
   const save = () => {
     if (!name.trim() || !email.trim()) return;
+    if (!me) return;
     updateUser(me.id, { name: name.trim(), email: email.trim(), initials: initialsOf(name.trim()) });
     refresh();
     setSaved(true);
@@ -27,10 +28,10 @@ export default function Settings() {
         <div className="card card-pad">
           <h3 className="section-title">Profile</h3>
           <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 16 }}>
-            <AvatarInitials name={me.name} initials={me.initials} size="lg" />
+            <AvatarInitials name={me?.name || 'User'} initials={me?.initials || 'U'} size="lg" />
             <div>
-              <div style={{ fontWeight: 500 }}>{me.name}</div>
-              <div className="text-secondary" style={{ fontSize: 13 }}>{me.role} · {me.county} County</div>
+              <div style={{ fontWeight: 500 }}>{me?.name || 'No user configured'}</div>
+              {me && <div className="text-secondary" style={{ fontSize: 13 }}>{me.role} · {me.county} County</div>}
             </div>
           </div>
           <div className="field">
@@ -42,7 +43,7 @@ export default function Settings() {
             <input className="select" value={email} onChange={e => setEmail(e.target.value)} />
           </div>
           <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
-            <button className="btn primary" onClick={save}>Save changes</button>
+            <button className="btn primary" onClick={save} disabled={!me}>Save changes</button>
             {saved && <span className="text-secondary" style={{ fontSize: 13 }}>Saved ✓</span>}
           </div>
         </div>

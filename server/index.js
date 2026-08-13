@@ -59,7 +59,7 @@ app.post('/api/interactions', async (req, res, next) => {
     await client.query('BEGIN');
     const inserted = await client.query(
       `INSERT INTO interactions (id, church_id, contact_id, type, date, user_id, notes, attendee_count)
-       VALUES ('int_' || nextval('app_seq'), $1, NULL, $2, $3, 'usr_001', $4, NULL)
+       VALUES ('int_' || nextval('app_seq'), $1, NULL, $2, $3, NULL, $4, NULL)
        RETURNING *`,
       [churchId, type, date, notes]
     );
@@ -87,7 +87,7 @@ app.post('/api/notes', async (req, res, next) => {
   try {
     const inserted = await pool.query(
       `INSERT INTO church_notes (id, church_id, body, author_id, pinned, internal_only, created_at)
-       VALUES ('note_' || nextval('app_seq'), $1, $2, 'usr_001', $3, $4, CURRENT_DATE)
+       VALUES ('note_' || nextval('app_seq'), $1, $2, NULL, $3, $4, CURRENT_DATE)
        RETURNING *`,
       [churchId, body, Boolean(pinned), Boolean(internalOnly)]
     );
@@ -97,7 +97,37 @@ app.post('/api/notes', async (req, res, next) => {
   }
 });
 
+// Task upsert used by the dashboard add/edit/complete actions.
+app.put('/api/collections/tasks/:id', async (req, res, next) => {
+  const task = req.body;
+  if (!task.title) return res.status(400).json({ error: 'title is required' });
+  try {
+    await pool.query(
+      `INSERT INTO tasks (id, church_id, title, assigned_to, due_date, priority, status, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, COALESCE($8, CURRENT_DATE))
+       ON CONFLICT (id) DO UPDATE SET
+         church_id = EXCLUDED.church_id, title = EXCLUDED.title, assigned_to = EXCLUDED.assigned_to,
+         due_date = EXCLUDED.due_date, priority = EXCLUDED.priority, status = EXCLUDED.status`,
+      [task.id, task.churchId || null, task.title, task.assignedTo || null, task.dueDate || null,
+       task.priority || 'medium', task.status || 'open', task.createdAt || null]
+    );
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Follow-up task checkbox — mirrors the old helpers.js toggleTaskCompleted().
+app.delete('/api/tasks/:id', async (req, res, next) => {
+  try {
+    const deleted = await pool.query('DELETE FROM tasks WHERE id = $1 RETURNING id', [req.params.id]);
+    if (!deleted.rows.length) return res.status(404).json({ error: 'task not found' });
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.patch('/api/tasks/:id/toggle', async (req, res, next) => {
   try {
     const updated = await pool.query(

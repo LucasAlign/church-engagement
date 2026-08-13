@@ -2,11 +2,11 @@ import { useState, useRef, useEffect } from 'react';
 import {
   IconSearch, IconMapPin, IconChevronRight, IconRefresh, IconX,
   IconBuildingChurch, IconCheckbox, IconAlertCircle, IconPlus,
-  IconUpload, IconDownload,
+  IconUpload, IconDownload, IconEdit, IconTrash, IconArchive, IconChevronDown,
 } from '@tabler/icons-react';
 import db from '../data/db.js';
 import {
-  contactStatus, isTaskOverdue, addTask, toggleTaskCompleted,
+  contactStatus, isTaskOverdue, addTask, updateTask, deleteTask, toggleTaskCompleted, getTaskCompletedAt,
 } from '../data/helpers.js';
 import { fmtDate, ENGAGEMENT_STATUS, ENGAGEMENT_STATUS_FILTERS, TASK_PRIORITY } from '../data/labels.js';
 import { useDb } from '../data/store.jsx';
@@ -267,29 +267,72 @@ const TODO_FILTERS = [
 function ToDoWidget({ todoFilter, setTodoFilter, todoRef }) {
   const { refresh } = useDb();
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [archiveOpen, setArchiveOpen] = useState(false);
   const [title, setTitle] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [priority, setPriority] = useState('medium');
+  const [now, setNow] = useState(Date.now());
 
-  let tasks = db.tasks.filter(t => t.status !== 'completed');
-  if (todoFilter === 'overdue') {
-    tasks = tasks.filter(isTaskOverdue);
-  }
+  useEffect(() => {
+    const timer = setInterval(() => setNow(Date.now()), 60000);
+    return () => clearInterval(timer);
+  }, []);
+
+  const archiveAfter = 12 * 60 * 60 * 1000;
+  const isArchived = task => {
+    const completedAt = getTaskCompletedAt(task);
+    return task.status === 'completed' && (!completedAt || now - new Date(completedAt).getTime() >= archiveAfter);
+  };
+
+  const archivedTasks = db.tasks.filter(isArchived);
+  let tasks = db.tasks.filter(task => !isArchived(task));
+  if (todoFilter === 'open') tasks = tasks.filter(task => task.status !== 'completed');
+  if (todoFilter === 'overdue') tasks = tasks.filter(isTaskOverdue);
   tasks = [...tasks].sort((a, b) => (a.dueDate || '9999').localeCompare(b.dueDate || '9999'));
 
-  const handleToggle = (id) => {
-    toggleTaskCompleted(id);
+  const resetForm = () => {
+    setTitle(''); setDueDate(''); setPriority('medium');
+    setEditingId(null); setAdding(false);
+  };
+  const handleToggle = id => { toggleTaskCompleted(id); setNow(Date.now()); refresh(); };
+  const handleSave = () => {
+    if (!title.trim()) return;
+    const fields = { title: title.trim(), dueDate: dueDate || null, priority };
+    if (editingId) updateTask(editingId, fields);
+    else addTask({ ...fields, status: 'open' });
+    resetForm(); refresh();
+  };
+  const handleEdit = task => {
+    setEditingId(task.id); setTitle(task.title); setDueDate(task.dueDate || '');
+    setPriority(task.priority || 'medium'); setAdding(true);
+  };
+  const handleDelete = task => {
+    deleteTask(task.id);
     refresh();
   };
 
-  const handleAdd = () => {
-    if (!title.trim()) return;
-    addTask({ title: title.trim(), dueDate: dueDate || null, priority, status: 'open' });
-    setTitle('');
-    setDueDate('');
-    setPriority('medium');
-    setAdding(false);
-    refresh();
+  const TaskRow = ({ task, archived = false }) => {
+    const done = task.status === 'completed';
+    const overdue = isTaskOverdue(task);
+    const church = task.churchId ? db.churches.find(c => c.id === task.churchId) : null;
+    const prio = TASK_PRIORITY[task.priority] || TASK_PRIORITY.medium;
+    return (
+      <div className={'todo-row' + (overdue ? ' overdue' : '') + (done ? ' completed' : '')}>
+        <input type="checkbox" className="todo-check" checked={done} onChange={() => handleToggle(task.id)} />
+        <div className="todo-main">
+          <div className="todo-title">{task.title}</div>
+          <div className="todo-meta">
+            {church && <span className="todo-church">{church.name}</span>}
+            {task.dueDate && <span className={'todo-due' + (overdue ? ' overdue' : '')}>{fmtDate(task.dueDate)}</span>}
+            {archived && <span>Completed</span>}
+          </div>
+        </div>
+        <Badge label={prio.label} variant={prio.variant} />
+        <button className="todo-action" onClick={() => handleEdit(task)} title="Edit task" aria-label="Edit task"><IconEdit /></button>
+        <button className="todo-action danger" onClick={() => handleDelete(task)} title="Delete task" aria-label="Delete task"><IconTrash /></button>
+      </div>
+    );
   };
 
   return (
@@ -301,92 +344,44 @@ function ToDoWidget({ todoFilter, setTodoFilter, todoRef }) {
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
           <div className="db-filter-pills">
-            {TODO_FILTERS.map(f => (
-              <button
-                key={f.value}
-                className={`db-filter-pill${todoFilter === f.value ? ' active' : ''}`}
-                onClick={() => setTodoFilter(f.value)}
-              >
-                {f.label}
-              </button>
-            ))}
+            {TODO_FILTERS.map(f => <button key={f.value} className={'db-filter-pill' + (todoFilter === f.value ? ' active' : '')} onClick={() => setTodoFilter(f.value)}>{f.label}</button>)}
           </div>
-          <button className="btn sm" onClick={() => setAdding(a => !a)}>
-            <IconPlus stroke={1.75} size={14} />
-            Add task
+          <button className="btn sm" onClick={() => { if (adding) resetForm(); else setAdding(true); }}>
+            <IconPlus stroke={1.75} size={14} /> Add task
           </button>
         </div>
       </div>
 
       {adding && (
         <div className="todo-add-form">
-          <input
-            className="todo-input"
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            placeholder="Task title"
-            onKeyDown={e => { if (e.key === 'Enter') handleAdd(); }}
-            autoFocus
-          />
+          <input className="todo-input" value={title} onChange={e => setTitle(e.target.value)} placeholder="Task title" onKeyDown={e => { if (e.key === 'Enter') handleSave(); }} autoFocus />
           <div className="todo-add-row">
-            <input
-              className="todo-input"
-              type="date"
-              value={dueDate}
-              onChange={e => setDueDate(e.target.value)}
-            />
-            <select
-              className="todo-input"
-              value={priority}
-              onChange={e => setPriority(e.target.value)}
-            >
-              {Object.entries(TASK_PRIORITY).map(([key, p]) => (
-                <option key={key} value={key}>{p.label}</option>
-              ))}
+            <input className="todo-input" type="date" value={dueDate} onChange={e => setDueDate(e.target.value)} />
+            <select className="todo-input" value={priority} onChange={e => setPriority(e.target.value)}>
+              {Object.entries(TASK_PRIORITY).map(([key, p]) => <option key={key} value={key}>{p.label}</option>)}
             </select>
-            <button className="btn sm primary" onClick={handleAdd}>Save</button>
+            <button className="btn sm" onClick={resetForm}>Cancel</button>
+            <button className="btn sm primary" onClick={handleSave}>{editingId ? 'Update' : 'Save'}</button>
           </div>
         </div>
       )}
 
-      {tasks.length === 0 ? (
+      {tasks.length ? <div className="todo-list">{tasks.map(task => <TaskRow key={task.id} task={task} />)}</div> : (
         <div className="empty-state" style={{ padding: '32px 20px' }}>
-          <IconCheckbox stroke={1.25} />
-          <div className="es-title">No tasks here</div>
+          <IconCheckbox stroke={1.25} /><div className="es-title">No tasks here</div>
           <div>{todoFilter === 'overdue' ? 'Nothing overdue' : 'Add a task to get started'}</div>
         </div>
-      ) : (
-        <div className="todo-list">
-          {tasks.map(task => {
-            const overdue = isTaskOverdue(task);
-            const church = task.churchId ? db.churches.find(c => c.id === task.churchId) : null;
-            const prio = TASK_PRIORITY[task.priority] || TASK_PRIORITY.medium;
-            return (
-              <div className={`todo-row${overdue ? ' overdue' : ''}`} key={task.id}>
-                <input
-                  type="checkbox"
-                  className="todo-check"
-                  checked={false}
-                  onChange={() => handleToggle(task.id)}
-                />
-                <div className="todo-main">
-                  <div className="todo-title">{task.title}</div>
-                  <div className="todo-meta">
-                    {church && <span className="todo-church">{church.name}</span>}
-                    {task.dueDate && (
-                      <span className={`todo-due${overdue ? ' overdue' : ''}`}>
-                        {overdue && <IconAlertCircle stroke={1.75} size={12} />}
-                        {fmtDate(task.dueDate)}
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <Badge label={prio.label} variant={prio.variant} />
-              </div>
-            );
-          })}
-        </div>
       )}
+
+      <div className="todo-archive">
+        <button className="todo-archive-toggle" onClick={() => setArchiveOpen(open => !open)}>
+          <IconArchive /><span>Archive</span><span className="todo-archive-count">{archivedTasks.length}</span>
+          <IconChevronDown className={archiveOpen ? 'open' : ''} />
+        </button>
+        {archiveOpen && (archivedTasks.length
+          ? <div className="todo-list archived">{archivedTasks.map(task => <TaskRow key={task.id} task={task} archived />)}</div>
+          : <div className="todo-archive-empty">No archived tasks</div>)}
+      </div>
     </div>
   );
 }
