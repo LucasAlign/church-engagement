@@ -3,6 +3,20 @@
 import { IconSearch, IconX } from '@tabler/icons-react';
 import { initialsOf } from '../data/labels.js';
 
+// Green dot = contacted within 90 days, red = overdue or never
+export function ContactDot({ status, date }) {
+  const label = date
+    ? `Last contact: ${date}${status === 'red' ? ' (overdue)' : ''}`
+    : 'Never contacted';
+  return (
+    <span
+      className={`contact-dot contact-dot-${status}`}
+      title={label}
+      aria-label={label}
+    />
+  );
+}
+
 export function Badge({ label, variant = 'gray' }) {
   return <span className={`badge ${variant}`}>{label}</span>;
 }
@@ -56,6 +70,15 @@ export function FilterPills({ options, active, onChange }) {
 }
 
 export function CSSBarChart({ data, color = 'blue', format = v => v }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="bar-chart">
+        <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
+          No data available
+        </div>
+      </div>
+    );
+  }
   const max = Math.max(...data.map(d => d.value), 1);
   return (
     <div className="bar-chart">
@@ -85,10 +108,10 @@ export function EmptyState({ icon: Icon, title, sub }) {
   );
 }
 
-export function Modal({ title, onClose, footer, children }) {
+export function Modal({ title, onClose, footer, children, wide }) {
   return (
     <div className="modal-overlay" onMouseDown={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
+      <div className={`modal ${wide ? 'wide' : ''}`}>
         <div className="modal-header">
           <div className="modal-title">{title}</div>
           <button className="icon-btn" onClick={onClose} aria-label="Close">

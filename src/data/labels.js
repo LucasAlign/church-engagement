@@ -1,14 +1,50 @@
 // Display labels and badge variants for every enum in the schema.
 // Variants map to the badge color system: green | blue | amber | red | purple | gray
 
+// Current engagement taxonomy. Legacy keys (active_partner, strategic_partner,
+// interested, initial_contact, not_contacted, dormant) are kept as aliases so
+// any un-migrated rows from Supabase still render a correct badge; the
+// migration in helpers.js rewrites them to the new keys at load time.
 export const ENGAGEMENT_STATUS = {
-  not_contacted: { label: 'Not contacted', variant: 'gray' },
-  initial_contact: { label: 'Initial contact', variant: 'blue' },
-  interested: { label: 'Interested', variant: 'amber' },
-  active_partner: { label: 'Active partner', variant: 'green' },
-  strategic_partner: { label: 'Strategic partner', variant: 'purple' },
-  dormant: { label: 'Dormant', variant: 'gray' },
+  partnering:     { label: 'Partnering', variant: 'green' },
+  potential:      { label: 'Potential', variant: 'amber' },
+  unreached:      { label: 'Unreached', variant: 'gray' },
+  unable_to_sign: { label: 'Unable to sign partnership', variant: 'red' },
+  // legacy aliases (pre-migration safety) — same display as their new target
+  active_partner:    { label: 'Partnering', variant: 'green' },
+  strategic_partner: { label: 'Potential', variant: 'amber' },
+  interested:        { label: 'Potential', variant: 'amber' },
+  initial_contact:   { label: 'Potential', variant: 'amber' },
+  not_contacted:     { label: 'Unreached', variant: 'gray' },
+  dormant:           { label: 'Unreached', variant: 'gray' },
 };
+
+// New statuses in display order + a ready-made filter list (with leading "All").
+export const ENGAGEMENT_STATUS_ORDER = ['partnering', 'potential', 'unreached', 'unable_to_sign'];
+export const ENGAGEMENT_STATUS_FILTERS = [
+  { value: 'all', label: 'All' },
+  ...ENGAGEMENT_STATUS_ORDER.map(value => ({ value, label: ENGAGEMENT_STATUS[value].label })),
+];
+
+// KFA advocate program roles (Advocate tab dropdown on a church profile).
+export const ADVOCATE_ROLE = {
+  care_communities: { label: 'Care Communities', variant: 'green' },
+  awareness:        { label: 'Awareness', variant: 'blue' },
+  needbridge:       { label: 'NeedBridge', variant: 'purple' },
+};
+
+// Programs tracked on the Analytics "ministries engaged" chart. matchKeys lists
+// the ministryEngagements.ministry values that count toward it; an empty
+// matchKeys means there is no data source yet -> render a feature-request card.
+export const ENGAGEMENT_MINISTRIES = [
+  { key: 'care_community',  label: 'Care Communities',        matchKeys: ['care_community'] },
+  { key: 'needbridge',      label: 'NeedBridge',              matchKeys: [] },
+  { key: 'mentoring',       label: 'Mentoring',               matchKeys: ['mentoring'] },
+  { key: 'financial_giving', label: 'Financial Giving',       matchKeys: ['financial_giving'] },
+  { key: 'monthly_donor',   label: 'Monthly Donor',           matchKeys: [] },
+  { key: 'foster_adoptive', label: 'Foster / Adoptive Parents', matchKeys: ['foster_care_recruitment', 'adoption_support'] },
+  { key: 'barton_bags',     label: 'Barton Bags',             matchKeys: [] },
+];
 
 export const GIVING_STATUS = {
   none: { label: 'No giving', variant: 'gray' },
@@ -39,6 +75,7 @@ export const INTERACTION_TYPE = {
   training: { label: 'Training', variant: 'amber' },
   follow_up: { label: 'Follow-up', variant: 'gray' },
   giving_conversation: { label: 'Giving conversation', variant: 'purple' },
+  impact_report: { label: 'Impact Report', variant: 'purple' },
 };
 
 export const MINISTRY_TYPE = {
@@ -85,6 +122,42 @@ export const KFA_ROLE = {
   primary_contact: { label: 'Primary contact', variant: 'green' },
   admin: { label: 'Admin', variant: 'gray' },
   none: { label: '—', variant: 'gray' },
+};
+
+export const CONGREGANT_CATEGORY = {
+  business:   { label: 'Business',   variant: 'blue' },
+  political:  { label: 'Political',  variant: 'purple' },
+  community:  { label: 'Community',  variant: 'green' },
+  media:      { label: 'Media',      variant: 'amber' },
+  education:  { label: 'Education',  variant: 'blue' },
+  healthcare: { label: 'Healthcare', variant: 'green' },
+  other:      { label: 'Other',      variant: 'gray' },
+};
+
+export const CARE_COMMUNITY_STATUS = {
+  active:    { label: 'Active',    variant: 'green' },
+  forming:   { label: 'Forming',   variant: 'amber' },
+  inactive:  { label: 'Inactive',  variant: 'gray' },
+};
+
+export const ADVOCATE_STATUS = {
+  active:    { label: 'Active',    variant: 'green' },
+  inactive:  { label: 'Inactive',  variant: 'gray' },
+  prospect:  { label: 'Prospect',  variant: 'amber' },
+};
+
+export const CONNECTION_TYPE = {
+  referral:    { label: 'Referral',    variant: 'blue' },
+  partnership: { label: 'Partnership', variant: 'green' },
+  volunteer:   { label: 'Volunteer',   variant: 'amber' },
+  donor:       { label: 'Donor',       variant: 'purple' },
+  other:       { label: 'Other',       variant: 'gray' },
+};
+
+export const CONNECTION_STATUS = {
+  active:   { label: 'Active',   variant: 'green' },
+  inactive: { label: 'Inactive', variant: 'gray' },
+  pending:  { label: 'Pending',  variant: 'amber' },
 };
 
 export const PREFERRED_CONTACT = {
