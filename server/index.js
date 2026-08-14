@@ -97,6 +97,45 @@ app.post('/api/notes', async (req, res, next) => {
   }
 });
 
+// Church upsert, including its multi-select KeyFam associations.
+app.put('/api/collections/churches/:id', async (req, res, next) => {
+  const church = req.body;
+  if (!church.name) return res.status(400).json({ error: 'name is required' });
+  try {
+    await pool.query(
+      `INSERT INTO churches (
+         id, name, address, city, state, zip, county, phone, email, website, denomination,
+         attendance_min, attendance_max, engagement_status, first_contact_date,
+         last_interaction_date, assigned_coordinator_id, has_care_community, notes,
+         created_at, updated_at, kfa_associations
+       ) VALUES (
+         $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15,
+         $16, $17, $18, $19, $20, $21, $22
+       ) ON CONFLICT (id) DO UPDATE SET
+         name = EXCLUDED.name, address = EXCLUDED.address, city = EXCLUDED.city,
+         state = EXCLUDED.state, zip = EXCLUDED.zip, county = EXCLUDED.county,
+         phone = EXCLUDED.phone, email = EXCLUDED.email, website = EXCLUDED.website,
+         denomination = EXCLUDED.denomination, attendance_min = EXCLUDED.attendance_min,
+         attendance_max = EXCLUDED.attendance_max, engagement_status = EXCLUDED.engagement_status,
+         first_contact_date = EXCLUDED.first_contact_date,
+         last_interaction_date = EXCLUDED.last_interaction_date,
+         assigned_coordinator_id = EXCLUDED.assigned_coordinator_id,
+         has_care_community = EXCLUDED.has_care_community, notes = EXCLUDED.notes,
+         updated_at = EXCLUDED.updated_at, kfa_associations = EXCLUDED.kfa_associations`,
+      [church.id, church.name, church.address || null, church.city || '', church.state || 'PA',
+       church.zip || null, church.county || null, church.phone || null, church.email || null,
+       church.website || null, church.denomination || null, church.attendanceMin ?? null,
+       church.attendanceMax ?? null, church.engagementStatus || 'unreached',
+       church.firstContactDate || null, church.lastInteractionDate || null,
+       church.assignedCoordinatorId || null, Boolean(church.hasCareCommunity), church.notes || null,
+       church.createdAt || null, church.updatedAt || null, church.kfaAssociations || []]
+    );
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Task upsert used by the dashboard add/edit/complete actions.
 app.put('/api/collections/tasks/:id', async (req, res, next) => {
   const task = req.body;
@@ -145,6 +184,7 @@ app.patch('/api/tasks/:id/toggle', async (req, res, next) => {
 
 async function start() {
   const PORT = process.env.PORT || 5000;
+  await pool.query("ALTER TABLE churches ADD COLUMN IF NOT EXISTS kfa_associations text[] NOT NULL DEFAULT '{}'");
   const httpServer = http.createServer(app);
 
   if (isProd) {

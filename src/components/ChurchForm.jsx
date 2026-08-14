@@ -17,6 +17,15 @@ const DENOMINATIONS = [
   'United Church of Christ', 'United Methodist',
 ];
 const CITIES = ['Bechtelsville', 'Bethel', 'Birdsboro', 'Boyertown', 'Douglassville', 'Fleetwood', 'Hamburg', 'Kutztown', 'Leesport', 'Mohnton', 'Reading', 'Robesonia', 'Shillington', 'Sinking Spring', 'West Reading', 'Womelsdorf', 'Wyomissing'];
+const KEYFAM_ASSOCIATIONS = [
+  { value: 'signed_partnership_agreement', label: 'Signed partnership agreement' },
+  { value: 'partner', label: 'Partner church' },
+  { value: 'advocate', label: 'Has KeyFam advocate(s)' },
+  { value: 'care_community', label: 'Runs a care community' },
+  { value: 'donor', label: 'Financial supporter' },
+  { value: 'volunteer', label: 'Volunteer connection' },
+  { value: 'other', label: 'Other connection' },
+];
 const EMPTY_PERSON = { name: '', phone: '', email: '' };
 const EMPTY_COMMUNITY = { name: '', lead: '', phone: '', email: '' };
 
@@ -37,6 +46,25 @@ function FlexibleSelect({ value, onChange, options, placeholder }) {
     {(custom || value === '__other__') && <Input autoFocus value={value === '__other__' ? '' : value} onChange={onChange} placeholder="Enter custom value" />}
   </>;
 }
+function AssociationMultiSelect({ value, onChange }) {
+  const selected = Array.isArray(value) ? value : [];
+  const toggle = association => onChange(selected.includes(association)
+    ? selected.filter(item => item !== association)
+    : [...selected, association]);
+  const summary = selected.length
+    ? selected.length + ' association' + (selected.length === 1 ? '' : 's') + ' selected'
+    : 'No known association';
+
+  return <details className="church-multi-select">
+    <summary>{summary}</summary>
+    <div className="church-multi-options">
+      {KEYFAM_ASSOCIATIONS.map(option => <label key={option.value}>
+        <input type="checkbox" checked={selected.includes(option.value)} onChange={() => toggle(option.value)} />
+        <span>{option.label}</span>
+      </label>)}
+    </div>
+  </details>;
+}
 function PersonFields({ person, onChange, roleLabel, onRemove }) {
   return <div className="church-person-row">
     <Field label={roleLabel}><Input value={person.name} onChange={value => onChange({ ...person, name: value })} placeholder="Full name" /></Field>
@@ -47,13 +75,21 @@ function PersonFields({ person, onChange, roleLabel, onRemove }) {
 }
 
 export default function ChurchForm({ church, onSave, onCancel }) {
-  const [form, setForm] = useState({ county: 'Berks', state: 'PA', engagementStatus: 'unreached', ...church });
+  const initialAssociations = Array.isArray(church?.kfaAssociations)
+    ? church.kfaAssociations
+    : (church?.kfaAssociation ? [church.kfaAssociation] : []);
+  const [form, setForm] = useState({ county: 'Berks', state: 'PA', engagementStatus: 'unreached', ...church, kfaAssociations: initialAssociations });
   const [leaders, setLeaders] = useState({ pastor: { ...EMPTY_PERSON }, assistant: { ...EMPTY_PERSON }, others: [] });
   const [hasAdvocates, setHasAdvocates] = useState(false);
   const [advocates, setAdvocates] = useState([{ ...EMPTY_PERSON }]);
   const [hasCommunities, setHasCommunities] = useState(false);
   const [communities, setCommunities] = useState([{ ...EMPTY_COMMUNITY }]);
   const set = (key, value) => setForm(current => ({ ...current, [key]: value }));
+  const setAssociations = values => setForm(current => ({
+    ...current,
+    kfaAssociations: values,
+    engagementStatus: values.includes('signed_partnership_agreement') ? 'partnering' : current.engagementStatus,
+  }));
   const updateList = (setter, list, index, value) => setter(list.map((item, i) => i === index ? value : item));
   const removeFrom = (setter, list, index) => setter(list.filter((_, i) => i !== index));
 
@@ -93,6 +129,7 @@ export default function ChurchForm({ church, onSave, onCancel }) {
       createdAt: form.createdAt || TODAY, updatedAt: TODAY,
     };
     delete record.attendanceApprox;
+    delete record.kfaAssociation;
     const index = db.churches.findIndex(item => item.id === record.id);
     if (index >= 0) db.churches[index] = record; else db.churches.push(record);
     saveRecord('churches', record);
@@ -132,7 +169,7 @@ export default function ChurchForm({ church, onSave, onCancel }) {
           {hasCommunities && <>{communities.map((item, index) => <div className="church-person-row care" key={index}><Field label="Community name"><Input value={item.name} onChange={value => updateList(setCommunities, communities, index, { ...item, name: value })} /></Field><Field label="Lead name"><Input value={item.lead} onChange={value => updateList(setCommunities, communities, index, { ...item, lead: value })} /></Field><Field label="Phone"><Input type="tel" value={item.phone} onChange={value => updateList(setCommunities, communities, index, { ...item, phone: value })} /></Field><Field label="Email"><Input type="email" value={item.email} onChange={value => updateList(setCommunities, communities, index, { ...item, email: value })} /></Field>{communities.length > 1 && <button type="button" className="church-row-remove" onClick={() => removeFrom(setCommunities, communities, index)}><IconTrash /></button>}</div>)}<button type="button" className="btn sm church-add-row" onClick={() => setCommunities([...communities, { ...EMPTY_COMMUNITY }])}><IconPlus /> Add care community</button></>}
         </section>}
         <section><h3>KeyFam relationship & notes</h3><div className="church-form-grid two">
-          <Field label="KeyFam association"><select className="select" value={form.kfaAssociation || ''} onChange={e => set('kfaAssociation', e.target.value)}><option value="">No known association</option><option value="partner">Partner church</option><option value="advocate">Has KeyFam advocate(s)</option><option value="care_community">Runs a care community</option><option value="donor">Financial supporter</option><option value="volunteer">Volunteer connection</option><option value="other">Other connection</option></select></Field>
+          <Field label="KeyFam associations"><AssociationMultiSelect value={form.kfaAssociations} onChange={setAssociations} /></Field>
           <Field label="Engagement status"><select className="select" value={form.engagementStatus || 'unreached'} onChange={e => set('engagementStatus', e.target.value)}>{ENGAGEMENT_STATUS_FILTERS.filter(item => item.value !== 'all').map(item => <option key={item.value} value={item.value}>{item.label}</option>)}</select></Field>
           <Field label="Other church information" wide><textarea className="select" value={form.notes || ''} onChange={e => set('notes', e.target.value)} placeholder="Ministries, service times, community involvement, needs, or anything else useful…" /></Field>
         </div></section>

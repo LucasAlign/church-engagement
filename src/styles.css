@@ -1029,6 +1029,12 @@ textarea.select { resize: vertical; min-height: 70px; }
 .church-form-field.wide { grid-column: 1 / -1; }
 .church-form-field textarea { min-height: 88px; resize: vertical; }
 .church-form-field .select + .select { margin-top: 7px; }
+.church-multi-select { position: relative; }
+.church-multi-select > summary { min-height: 34px; padding: 8px 12px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); color: var(--text); font-size: 14px; cursor: pointer; box-sizing: border-box; }
+.church-multi-options { position: absolute; z-index: 5; top: calc(100% + 5px); left: 0; right: 0; padding: 7px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: 0 10px 28px rgba(0,0,0,.14); }
+.church-multi-options label { display: flex; align-items: center; gap: 8px; padding: 7px 8px; border-radius: 5px; color: var(--text); font-size: 13px; cursor: pointer; }
+.church-multi-options label:hover { background: var(--bg-secondary); }
+.church-multi-options input { accent-color: var(--primary-500); }
 .church-person-row { display: grid; grid-template-columns: 1.25fr 1fr 1.35fr 30px; gap: 12px; align-items: end; margin-bottom: 11px; }
 .church-person-row.care { grid-template-columns: 1.15fr 1.15fr .9fr 1.25fr 30px; }
 .church-row-remove { width: 30px; height: 34px; border: 0; border-radius: 6px; background: transparent; color: var(--text-tertiary); cursor: pointer; display: flex; align-items: center; justify-content: center; }

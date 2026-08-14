@@ -19,6 +19,7 @@ export const mapChurch = row => ({
   lastInteractionDate: dateOnly(row.last_interaction_date),
   assignedCoordinatorId: row.assigned_coordinator_id,
   hasCareCommunity: row.has_care_community,
+  kfaAssociations: row.kfa_associations || [],
   notes: row.notes, createdAt: dateOnly(row.created_at), updatedAt: dateOnly(row.updated_at),
 });
 
