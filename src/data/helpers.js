@@ -94,6 +94,17 @@ export function getContactById(id) {
 export function getCongregantsByChurch(churchId) {
   return db.notableCongregants.filter(c => c.churchId === churchId);
 }
+export function removeProfileRecord(collection, id) {
+  const allowed = ['contacts', 'interactions', 'ministryEngagements', 'churchNotes', 'tasks', 'notableCongregants', 'advocates'];
+  if (!allowed.includes(collection)) return;
+  const records = db[collection];
+  const index = records.findIndex(record => record.id === id);
+  if (index < 0) return;
+  records.splice(index, 1);
+  fetch('/api/profile-records/' + collection + '/' + id, { method: 'DELETE' })
+    .catch(error => console.error('Deleting ' + collection + '/' + id + ' failed:', error));
+  notifyDb();
+}
 export function addCongregant({ churchId, name, title, category, email, phone, notes, lastContactDate }) {
   const rec = {
     id: genId('cng'), churchId, name, title, category, email: email || null,

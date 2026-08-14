@@ -58,6 +58,7 @@ export default function FormModal({
           </h2>
           <button
             onClick={onCancel}
+            aria-label="Close"
             style={{
               background: 'none',
               border: 'none',
@@ -186,6 +187,7 @@ export default function FormModal({
           }}
         >
           <button
+            className="btn"
             onClick={onCancel}
             disabled={isLoading}
             style={{
@@ -202,6 +204,7 @@ export default function FormModal({
             Cancel
           </button>
           <button
+            className="btn primary"
             onClick={onSave}
             disabled={isLoading}
             style={{

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   IconMapPin, IconUsers, IconCalendar, IconUserCircle, IconMail, IconPhone,
-  IconPlus, IconPencil, IconPinned, IconLock, IconArchive, IconBuildingChurch, IconX, IconAlertCircle, IconLoader,
+  IconPlus, IconPencil, IconTrash, IconPinned, IconLock, IconArchive, IconBuildingChurch, IconX, IconAlertCircle, IconLoader,
 } from '@tabler/icons-react';
 import {
   getChurchById, getContactsByChurch, getInteractionsByChurch, getTasksByChurch,
@@ -10,7 +10,7 @@ import {
   getContactById, isTaskOverdue, addNote, toggleTaskCompleted,
   getCongregantsByChurch, addCongregant, updateCongregantContact,
   getLastContactForContact, contactStatus,
-  getAdvocatesByChurch, addAdvocate, addMinistryEngagement, addTask,
+  getAdvocatesByChurch, addAdvocate, updateAdvocate, addMinistryEngagement, updateMinistryEngagement, addTask, updateTask, removeProfileRecord,
 } from '../data/helpers.js';
 import {
   ENGAGEMENT_STATUS, GIVING_STATUS, INTERACTION_TYPE, MINISTRY_TYPE,
@@ -217,6 +217,7 @@ function AdvocateTab({ church }) {
   const { refresh } = useDb();
   const [roleFilter, setRoleFilter] = useState('all');
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'care_communities', notes: '' });
   const advocates = getAdvocatesByChurch(church.id);
   const filtered = roleFilter === 'all' ? advocates : advocates.filter(a => a.role === roleFilter);
@@ -224,15 +225,10 @@ function AdvocateTab({ church }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const save = () => {
     if (!form.name.trim()) return;
-    addAdvocate({
-      churchId: church.id,
-      name: form.name.trim(),
-      email: form.email.trim() || null,
-      phone: form.phone.trim() || null,
-      role: form.role,
-      notes: form.notes.trim() || null,
-    });
+    const fields = { churchId: church.id, name: form.name.trim(), email: form.email.trim() || null, phone: form.phone.trim() || null, role: form.role, notes: form.notes.trim() || null };
+    if (editingId) updateAdvocate(editingId, fields); else addAdvocate(fields);
     setForm({ name: '', email: '', phone: '', role: 'care_communities', notes: '' });
+    setEditingId(null);
     setIsAdding(false);
     refresh();
   };
@@ -249,7 +245,7 @@ function AdvocateTab({ church }) {
             ))}
           </select>
         </div>
-        <button className="btn primary" onClick={() => setIsAdding(a => !a)}><IconPlus stroke={2} /> Add advocate</button>
+        <button className="btn primary" onClick={() => { setEditingId(null); setForm({ name: '', email: '', phone: '', role: 'care_communities', notes: '' }); setIsAdding(a => !a); }}><IconPlus stroke={2} /> Add advocate</button>
       </div>
 
       {isAdding && (
@@ -282,7 +278,7 @@ function AdvocateTab({ church }) {
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button className="btn" onClick={() => setIsAdding(false)}>Cancel</button>
-            <button className="btn primary" onClick={save}>Save advocate</button>
+            <button className="btn primary" onClick={save}>{editingId ? 'Update advocate' : 'Save advocate'}</button>
           </div>
         </div>
       )}
@@ -311,6 +307,10 @@ function AdvocateTab({ church }) {
                 {a.email && <span><IconMail stroke={1.75} /> {a.email}</span>}
                 {a.phone && <span><IconPhone stroke={1.75} /> {a.phone}</span>}
                 {a.notes && <span className="text-secondary">{a.notes}</span>}
+              </div>
+              <div className="pc-actions">
+                <button className="btn sm" onClick={() => { setEditingId(a.id); setForm({ name: a.name || '', email: a.email || '', phone: a.phone || '', role: a.role || 'care_communities', notes: a.notes || '' }); setIsAdding(true); }}><IconPencil /> Edit</button>
+                <button className="btn sm danger" onClick={() => { removeProfileRecord('advocates', a.id); refresh(); }}><IconTrash /> Remove</button>
               </div>
             </div>
           );
@@ -376,7 +376,7 @@ function StaffTab({ church }) {
               </div>
               <div className="pc-actions">
                 <button className="btn sm" onClick={() => setEditingContact(p)}><IconPencil stroke={1.75} /> Edit</button>
-                <button className="btn sm"><IconArchive stroke={1.75} /> Archive</button>
+                <button className="btn sm danger" onClick={() => { removeProfileRecord('contacts', p.id); refresh(); }}><IconTrash stroke={1.75} /> Remove</button>
               </div>
             </div>
           );
@@ -451,6 +451,7 @@ function NotableCongregrantsTab({ church }) {
                   ✓ Log contact
                 </button>
                 <button className="btn sm" onClick={() => setEditingCongregant(c)}><IconPencil stroke={1.75} /> Edit</button>
+                <button className="btn sm danger" onClick={() => { removeProfileRecord('notableCongregants', c.id); refresh(); }}><IconTrash stroke={1.75} /> Remove</button>
               </div>
             </div>
           );
@@ -460,7 +461,8 @@ function NotableCongregrantsTab({ church }) {
   );
 }
 
-function TimelineTab({ church, onLog }) {
+function TimelineTab({ church, onLog, onEdit }) {
+  const { refresh } = useDb();
   const interactions = getInteractionsByChurch(church.id);
   return (
     <div className="card card-pad">
@@ -481,6 +483,10 @@ function TimelineTab({ church, onLog }) {
                 <span className="t-meta">· {fmtDate(item.date)} · {user?.name}</span>
               </div>
               <div className="timeline-notes">{item.notes}</div>
+              <div className="pc-actions">
+                <button className="btn sm" onClick={() => onEdit(item)}><IconPencil /> Edit</button>
+                <button className="btn sm danger" onClick={() => { removeProfileRecord('interactions', item.id); refresh(); }}><IconTrash /> Remove</button>
+              </div>
             </div>
           );
         })}
@@ -492,27 +498,23 @@ function TimelineTab({ church, onLog }) {
 function MinistryTab({ church }) {
   const { refresh } = useDb();
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ ministry: Object.keys(MINISTRY_TYPE)[0], status: 'exploring', startDate: '', notes: '' });
   const engagements = getMinistryByChurch(church.id);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const save = () => {
-    addMinistryEngagement({
-      churchId: church.id,
-      ministry: form.ministry,
-      status: form.status,
-      startDate: form.startDate || null,
-      notes: form.notes.trim() || null,
-    });
+    const fields = { churchId: church.id, ministry: form.ministry, status: form.status, startDate: form.startDate || null, notes: form.notes.trim() || null };
+    if (editingId) updateMinistryEngagement(editingId, fields); else addMinistryEngagement(fields);
     setForm({ ministry: Object.keys(MINISTRY_TYPE)[0], status: 'exploring', startDate: '', notes: '' });
-    setIsAdding(false);
+    setEditingId(null); setIsAdding(false);
     refresh();
   };
 
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button className="btn primary" onClick={() => setIsAdding(a => !a)}><IconPlus stroke={2} /> Add ministry</button>
+        <button className="btn primary" onClick={() => { setEditingId(null); setForm({ ministry: Object.keys(MINISTRY_TYPE)[0], status: 'exploring', startDate: '', notes: '' }); setIsAdding(a => !a); }}><IconPlus stroke={2} /> Add ministry</button>
       </div>
 
       {isAdding && (
@@ -545,7 +547,7 @@ function MinistryTab({ church }) {
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button className="btn" onClick={() => setIsAdding(false)}>Cancel</button>
-            <button className="btn primary" onClick={save}>Save ministry</button>
+            <button className="btn primary" onClick={save}>{editingId ? 'Update ministry' : 'Save ministry'}</button>
           </div>
         </div>
       )}
@@ -569,6 +571,10 @@ function MinistryTab({ church }) {
               {coordinator && <div>Coordinator: {coordinator.name}</div>}
               {m.notes && <div>{m.notes}</div>}
             </div>
+            <div className="pc-actions">
+              <button className="btn sm" onClick={() => { setEditingId(m.id); setForm({ ministry: m.ministry, status: m.status, startDate: m.startDate || '', notes: m.notes || '' }); setIsAdding(true); }}><IconPencil /> Edit</button>
+              <button className="btn sm danger" onClick={() => { removeProfileRecord('ministryEngagements', m.id); refresh(); }}><IconTrash /> Remove</button>
+            </div>
           </div>
         );
         })}
@@ -580,6 +586,7 @@ function MinistryTab({ church }) {
 function NotesTab({ church }) {
   const { refresh } = useDb();
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [body, setBody] = useState('');
   const [pinned, setPinned] = useState(false);
   const [internalOnly, setInternalOnly] = useState(false);
@@ -587,15 +594,18 @@ function NotesTab({ church }) {
 
   const save = () => {
     if (!body.trim()) return;
-    addNote({ churchId: church.id, body: body.trim(), pinned, internalOnly });
-    setBody(''); setPinned(false); setInternalOnly(false); setAdding(false);
+    if (editingId) {
+      const note = db.churchNotes.find(item => item.id === editingId);
+      if (note) { Object.assign(note, { body: body.trim(), pinned, internalOnly }); saveRecord('churchNotes', note); }
+    } else addNote({ churchId: church.id, body: body.trim(), pinned, internalOnly });
+    setBody(''); setPinned(false); setInternalOnly(false); setEditingId(null); setAdding(false);
     refresh();
   };
 
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button className="btn primary" onClick={() => setAdding(a => !a)}><IconPlus stroke={2} /> Add note</button>
+        <button className="btn primary" onClick={() => { setEditingId(null); setBody(''); setPinned(false); setInternalOnly(false); setAdding(a => !a); }}><IconPlus stroke={2} /> Add note</button>
       </div>
       {adding && (
         <div className="card card-pad" style={{ marginBottom: 10 }}>
@@ -613,7 +623,7 @@ function NotesTab({ church }) {
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button className="btn" onClick={() => setAdding(false)}>Cancel</button>
-            <button className="btn primary" onClick={save}>Save note</button>
+            <button className="btn primary" onClick={save}>{editingId ? 'Update note' : 'Save note'}</button>
           </div>
         </div>
       )}
@@ -629,6 +639,10 @@ function NotesTab({ church }) {
                 {note.internalOnly && <Badge label="Internal only" variant="amber" />}
                 <span>{author?.name} · {fmtDate(note.createdAt)}</span>
               </div>
+              <div className="pc-actions">
+                <button className="btn sm" onClick={() => { setEditingId(note.id); setBody(note.body); setPinned(note.pinned); setInternalOnly(note.internalOnly); setAdding(true); }}><IconPencil /> Edit</button>
+                <button className="btn sm danger" onClick={() => { removeProfileRecord('churchNotes', note.id); refresh(); }}><IconTrash /> Remove</button>
+              </div>
             </div>
           );
         })}
@@ -640,27 +654,24 @@ function NotesTab({ church }) {
 function TasksTab({ church }) {
   const { refresh } = useDb();
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ title: '', dueDate: '', priority: 'medium' });
   const tasks = getTasksByChurch(church.id).slice().sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const save = () => {
     if (!form.title.trim()) return;
-    addTask({
-      churchId: church.id,
-      title: form.title.trim(),
-      dueDate: form.dueDate || null,
-      priority: form.priority,
-    });
+    const fields = { churchId: church.id, title: form.title.trim(), dueDate: form.dueDate || null, priority: form.priority };
+    if (editingId) updateTask(editingId, fields); else addTask(fields);
     setForm({ title: '', dueDate: '', priority: 'medium' });
-    setIsAdding(false);
+    setEditingId(null); setIsAdding(false);
     refresh();
   };
 
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button className="btn primary" onClick={() => setIsAdding(a => !a)}><IconPlus stroke={2} /> Add task</button>
+        <button className="btn primary" onClick={() => { setEditingId(null); setForm({ title: '', dueDate: '', priority: 'medium' }); setIsAdding(a => !a); }}><IconPlus stroke={2} /> Add task</button>
       </div>
 
       {isAdding && (
@@ -685,7 +696,7 @@ function TasksTab({ church }) {
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button className="btn" onClick={() => setIsAdding(false)}>Cancel</button>
-            <button className="btn primary" onClick={save}>Save task</button>
+            <button className="btn primary" onClick={save}>{editingId ? 'Update task' : 'Save task'}</button>
           </div>
         </div>
       )}
@@ -698,7 +709,7 @@ function TasksTab({ church }) {
         <div className="card" style={{ overflow: 'hidden' }}>
           <table className="data-table">
             <thead>
-              <tr><th /><th>Task</th><th>Assigned to</th><th>Due date</th><th>Priority</th><th>Status</th></tr>
+              <tr><th /><th>Task</th><th>Assigned to</th><th>Due date</th><th>Priority</th><th>Status</th><th /></tr>
             </thead>
             <tbody>
               {tasks.map(task => {
@@ -716,6 +727,7 @@ function TasksTab({ church }) {
                     <td className="cell-muted">{task.dueDate ? fmtDate(task.dueDate) : '—'}</td>
                     <td><Badge label={priority.label} variant={priority.variant} /></td>
                     <td><Badge label={status.label} variant={status.variant} /></td>
+                    <td><div className="pc-actions"><button className="btn sm" onClick={() => { setEditingId(task.id); setForm({ title: task.title, dueDate: task.dueDate || '', priority: task.priority || 'medium' }); setIsAdding(true); }}><IconPencil /></button><button className="btn sm danger" onClick={() => { removeProfileRecord('tasks', task.id); refresh(); }}><IconTrash /></button></div></td>
                   </tr>
                 );
               })}
@@ -734,6 +746,7 @@ export default function ChurchProfile({ churchId }) {
   const isModal = !!churchId;
   const [tab, setTab] = useState('Overview');
   const [logging, setLogging] = useState(false);
+  const [editingInteraction, setEditingInteraction] = useState(null);
   const [editing, setEditing] = useState(false);
   const church = getChurchById(id);
 
@@ -787,11 +800,12 @@ export default function ChurchProfile({ churchId }) {
       {tab === 'Advocate' && <AdvocateTab church={church} />}
       {tab === 'Staff' && <StaffTab church={church} />}
       {tab === 'Notable Congregants' && <NotableCongregrantsTab church={church} />}
-      {tab === 'Interactions' && <TimelineTab church={church} onLog={() => setLogging(true)} />}
+      {tab === 'Interactions' && <TimelineTab church={church} onLog={() => setLogging(true)} onEdit={setEditingInteraction} />}
       {tab === 'Ministry' && <MinistryTab church={church} />}
       {tab === 'Notes' && <NotesTab church={church} />}
       {tab === 'Tasks' && <TasksTab church={church} />}
       {logging && <LogInteractionModal churchId={church.id} onClose={() => setLogging(false)} />}
+      {editingInteraction && <LogInteractionModal churchId={church.id} interaction={editingInteraction} onClose={() => setEditingInteraction(null)} />}
       {editing && <ChurchForm church={church} onSave={() => { setEditing(false); refresh(); }} onCancel={() => setEditing(false)} />}
     </>
   );

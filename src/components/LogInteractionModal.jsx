@@ -2,25 +2,28 @@
 import { useState } from 'react';
 import db from '../data/db.js';
 import { addInteraction, addImpactReport, TODAY } from '../data/helpers.js';
+import { saveRecord } from '../data/backend.js';
 import { INTERACTION_TYPE } from '../data/labels.js';
 import { useDb } from '../data/store.jsx';
 import { Modal } from './shared.jsx';
 
-export default function LogInteractionModal({ churchId, onClose }) {
+export default function LogInteractionModal({ churchId, interaction, onClose }) {
   const { refresh } = useDb();
-  const [form, setForm] = useState({
+  const [form, setForm] = useState(interaction || {
     churchId: churchId || db.churches[0]?.id || '',
-    type: 'meeting',
-    date: TODAY,
-    notes: '',
+    type: 'meeting', date: TODAY, notes: '',
   });
   const [reportYear, setReportYear] = useState(2026);
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const save = () => {
     if (!form.churchId || !form.notes.trim()) return;
-    addInteraction(form);
-    if (form.type === 'impact_report') {
+    if (interaction?.id) {
+      const index = db.interactions.findIndex(item => item.id === interaction.id);
+      if (index >= 0) db.interactions[index] = { ...interaction, ...form };
+      saveRecord('interactions', db.interactions[index]);
+    } else addInteraction(form);
+    if (!interaction?.id && form.type === 'impact_report') {
       addImpactReport({ churchId: form.churchId, year: Number(reportYear), notes: form.notes });
     }
     refresh();
@@ -29,12 +32,12 @@ export default function LogInteractionModal({ churchId, onClose }) {
 
   return (
     <Modal
-      title="Log interaction"
+      title={interaction?.id ? 'Edit interaction' : 'Log interaction'}
       onClose={onClose}
       footer={
         <>
           <button className="btn" onClick={onClose}>Cancel</button>
-          <button className="btn primary" onClick={save}>Save interaction</button>
+          <button className="btn primary" onClick={save}>{interaction?.id ? 'Update interaction' : 'Save interaction'}</button>
         </>
       }
     >

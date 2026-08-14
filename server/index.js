@@ -167,6 +167,22 @@ app.delete('/api/tasks/:id', async (req, res, next) => {
   }
 });
 
+const PROFILE_RECORD_TABLES = {
+  contacts: 'contacts', interactions: 'interactions',
+  ministryEngagements: 'ministry_engagements', churchNotes: 'church_notes', tasks: 'tasks',
+};
+app.delete('/api/profile-records/:collection/:id', async (req, res, next) => {
+  const table = PROFILE_RECORD_TABLES[req.params.collection];
+  if (!table) return res.status(400).json({ error: 'unsupported profile record' });
+  try {
+    const deleted = await pool.query('DELETE FROM ' + table + ' WHERE id = $1 RETURNING id', [req.params.id]);
+    if (!deleted.rows.length) return res.status(404).json({ error: 'record not found' });
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
 app.patch('/api/tasks/:id/toggle', async (req, res, next) => {
   try {
     const updated = await pool.query(

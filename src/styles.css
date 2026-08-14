@@ -8,10 +8,12 @@
   --purple-bg: #ebeaf8;
   --blue-400: #378add;
   --blue-bg: #e7f1fb;
+  --primary-500: var(--blue-400);
   --amber-600: #ba7517;
   --amber-bg: #f8eedd;
   --red-400: #e24b4a;
   --red-bg: #fbe9e9;
+  --red-500: var(--red-400);
   --gray-400: #888780;
   --gray-bg: #efeeea;
 
@@ -875,6 +877,8 @@ textarea.select { resize: vertical; min-height: 70px; }
 .todo-action { width: 28px; height: 28px; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--text-tertiary); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; }
 .todo-action:hover { background: var(--bg-secondary); color: var(--text); }
 .todo-action.danger:hover { background: var(--red-bg); color: var(--red-400); }
+.btn.danger { color: var(--red-400); }
+.btn.danger:hover { background: var(--red-bg); border-color: var(--red-400); }
 .todo-action svg { width: 15px; height: 15px; }
 .todo-archive { border-top: 1px solid var(--border); }
 .todo-archive-toggle { width: 100%; padding: 12px 16px; border: 0; background: transparent; color: var(--text-secondary); cursor: pointer; display: flex; align-items: center; gap: 8px; font: inherit; font-size: 13px; }
