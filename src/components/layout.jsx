@@ -137,18 +137,29 @@ export function Header({ title, subtitle, actions }) {
 }
 
 function BackendBanner() {
-  const { backend, backendError } = useDb();
+  const { backend, backendError, saveFailure, retrySave, dismissSaveFailure } = useDb();
+  if (saveFailure) {
+    return (
+      <div className="backend-banner backend-banner-error" role="alert">
+        <span>Could not save {saveFailure.collection}: {saveFailure.message}</span>
+        <span className="backend-banner-actions">
+          <button className="btn sm" type="button" onClick={retrySave}>Retry</button>
+          <button className="btn sm" type="button" onClick={dismissSaveFailure}>Dismiss</button>
+        </span>
+      </div>
+    );
+  }
   if (backend === 'demo') {
     return (
       <div className="backend-banner backend-banner-demo">
-        Demo mode — changes are not saved. Connect Supabase to enable saving (see README).
+        Demo mode — changes are not saved. Connect the Replit database to enable persistence.
       </div>
     );
   }
   if (backend === 'error') {
     return (
       <div className="backend-banner backend-banner-error">
-        Could not reach the database — showing sample data, changes will not be saved. ({backendError})
+        Could not load the database. Changes are disabled until the connection is restored. ({backendError})
       </div>
     );
   }

@@ -1,46 +1,77 @@
-// Minimal change-notification layer over the in-memory db.
-// Components read db through helpers; after a mutation, call refresh()
-// to re-render. When Supabase is configured (see backend.js) the db is
-// hydrated from it at startup and mutations are written through.
 import { createContext, useCallback, useContext, useEffect, useState } from 'react';
-import { initBackend, isRemote } from './backend.js';
+import { initBackend, isRemote, subscribeSaveFailures } from './backend.js';
 import { migrateEngagementStatuses } from './helpers.js';
 
-// backend: 'demo' (no Supabase config, changes not saved),
-// 'loading', 'remote', or 'error'.
-const DbContext = createContext({ version: 0, refresh: () => {}, backend: 'demo', backendError: null });
+const BACKEND_TIMEOUT_MS = 15000;
+const DbContext = createContext({
+  version: 0,
+  refresh: () => {},
+  backend: 'demo',
+  backendError: null,
+  saveFailure: null,
+  retrySave: async () => {},
+  dismissSaveFailure: () => {},
+});
+
+function withTimeout(promise, ms) {
+  return Promise.race([
+    promise,
+    new Promise((_, reject) => setTimeout(() => reject(new Error('Database connection timed out')), ms)),
+  ]);
+}
 
 export function DbProvider({ children }) {
   const [version, setVersion] = useState(0);
   const [backend, setBackend] = useState(isRemote() ? 'loading' : 'demo');
   const [backendError, setBackendError] = useState(null);
-  const refresh = useCallback(() => setVersion(v => v + 1), []);
+  const [saveFailure, setSaveFailure] = useState(null);
+  const refresh = useCallback(() => setVersion(value => value + 1), []);
+
   useEffect(() => {
-    // Normalize any legacy engagement statuses already in the in-memory db
-    // (demo mode); remote data is normalized again after it hydrates below.
     migrateEngagementStatuses();
-    if (!isRemote()) return;
-    const timeout = setTimeout(() => {
-      console.error('Backend initialization timeout');
-      setBackend('demo');
-    }, 3000);
-    initBackend()
+    if (!isRemote()) return undefined;
+    let active = true;
+    withTimeout(initBackend(), BACKEND_TIMEOUT_MS)
       .then(() => {
-        clearTimeout(timeout);
+        if (!active) return;
         migrateEngagementStatuses();
         setBackend('remote');
       })
-      .catch(err => {
-        clearTimeout(timeout);
-        console.error('Backend initialization error:', err);
-        setBackend('demo');
+      .catch(error => {
+        if (!active) return;
+        console.error('Backend initialization error:', error);
+        setBackendError(error instanceof Error ? error.message : String(error));
+        setBackend('error');
       });
+    return () => { active = false; };
   }, []);
-  if (backend === 'loading') {
-    return <div className="backend-splash">Loading data…</div>;
+
+  useEffect(() => subscribeSaveFailures(setSaveFailure), []);
+
+  const retrySave = useCallback(async () => {
+    if (!saveFailure) return;
+    const result = await saveFailure.retry();
+    if (result.ok) setSaveFailure(null);
+  }, [saveFailure]);
+  const dismissSaveFailure = useCallback(() => setSaveFailure(null), []);
+
+  if (backend === 'loading') return <div className="backend-splash">Loading data…</div>;
+  if (backend === 'error') {
+    return (
+      <div className="backend-splash" role="alert">
+        <div>
+          <strong>Could not load the database.</strong>
+          <div>{backendError}</div>
+          <button className="btn primary" type="button" onClick={() => window.location.reload()}>Try again</button>
+        </div>
+      </div>
+    );
   }
+
   return (
-    <DbContext.Provider value={{ version, refresh, backend, backendError }}>
+    <DbContext.Provider value={{
+      version, refresh, backend, backendError, saveFailure, retrySave, dismissSaveFailure,
+    }}>
       {children}
     </DbContext.Provider>
   );

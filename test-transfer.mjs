@@ -3,6 +3,23 @@ import * as XLSX from 'xlsx';
 import db from './src/data/db.js';
 import { ENTITIES, parseImportFile, applyImport } from './src/data/transfer.js';
 
+// The production database is hydrated asynchronously and intentionally starts
+// empty. Keep this test deterministic by owning a small, representative
+// fixture instead of depending on production or demo records.
+Object.assign(db, {
+  users: [{ id: 'usr_001', name: 'Sarah Chen', role: 'County Coordinator', email: 's.chen@example.org', county: 'Berks', initials: 'SC' }],
+  churches: [{ id: 'ch_test', name: 'Covenant Church', address: null, city: 'Reading', state: 'PA', zip: null, county: null, phone: '(610) 555-0100', email: null, website: null, denomination: null, attendanceMin: null, attendanceMax: null, engagementStatus: 'partnering', firstContactDate: null, lastInteractionDate: null, assignedCoordinatorId: 'usr_001', hasCareCommunity: false }],
+  contacts: [{ id: 'con_test', churchId: 'ch_test', name: 'Pat Pastor', position: 'Pastor', email: null, phone: null, preferredContact: null, kfaRole: null, notes: null, archived: false }],
+  careCommunities: [{ id: 'cc_test', churchId: 'ch_test', name: 'Care Team', status: 'active', lead: null, familyServed: null, startDate: null, members: [], notes: null }],
+  advocates: [{ id: 'adv_test', churchId: 'ch_test', name: 'Alex Advocate', email: null, phone: null, role: null, status: 'active', trainedDate: null, notes: null }],
+  connections: [{ id: 'cx_test', churchId: 'ch_test', name: 'Casey Connection', email: null, phone: null, connectionType: 'volunteer', status: 'active', notes: null }],
+  ministryEngagements: [{ id: 'min_test', churchId: 'ch_test', ministry: 'care_community', status: 'active', startDate: null, coordinatorId: null, notes: null }],
+  givingRecords: [{ id: 'giv_test', churchId: 'ch_test', date: '2026-01-01', amount: 100, fund: null, type: 'one_time' }],
+  interactions: [{ id: 'int_test', churchId: 'ch_test', date: '2026-01-02', type: 'email', userId: 'usr_001', notes: 'Test', attendeeCount: null }],
+  churchNotes: [{ id: 'note_test', churchId: 'ch_test', body: 'Test note', authorId: 'usr_001', pinned: false, internalOnly: false, createdAt: '2026-01-03' }],
+  tasks: [{ id: 'tsk_test', churchId: 'ch_test', title: 'Test task', assignedTo: 'usr_001', dueDate: null, status: 'open', priority: 'medium' }],
+});
+
 // Build the same workbook exportExcel() produces, in-memory.
 function buildWorkbook() {
   const wb = XLSX.utils.book_new();

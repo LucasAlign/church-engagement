@@ -1,5 +1,5 @@
 // db.js — in-memory database
-// Replace each collection with a Supabase table of the same shape.
+// Hydrated from the Replit backend at startup.
 const db = {
   churches: [],
   contacts: [],
@@ -13,9 +13,7 @@ const db = {
   impactReports: [],
   churchNotes: [],
   notableCongregants: [],
-  users: [
-    { id: 'usr_001', name: 'Sarah Chen', role: 'County Coordinator', email: 's.chen@keystonefamilyalliance.org', county: 'Berks', initials: 'SC' },
-  ],
+  users: [],
 };
 
 export default db;

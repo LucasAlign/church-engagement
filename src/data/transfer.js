@@ -110,7 +110,7 @@ export const ENTITIES = [
       field('firstContactDate', 'First Contact Date', F.date),
       field('lastInteractionDate', 'Last Interaction Date', F.date),
       field('assignedCoordinatorId', 'Coordinator', F.user),
-      field('hasCareCommmunity', 'Has Care Community', F.bool),
+      field('hasCareCommunity', 'Has Care Community', F.bool),
     ],
   },
   {

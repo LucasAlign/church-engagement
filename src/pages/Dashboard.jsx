@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react';
+import { lazy, Suspense, useState, useRef, useEffect } from 'react';
 import {
   IconSearch, IconMapPin, IconChevronRight, IconRefresh, IconX,
   IconBuildingChurch, IconCheckbox, IconAlertCircle, IconPlus,
@@ -12,8 +12,9 @@ import { fmtDate, ENGAGEMENT_STATUS, ENGAGEMENT_STATUS_FILTERS, TASK_PRIORITY } 
 import { useDb } from '../data/store.jsx';
 import { ContactDot, Badge } from '../components/shared.jsx';
 import ChurchForm from '../components/ChurchForm.jsx';
-import { ImportModal, ExportModal } from '../components/ImportExportModals.jsx';
-import ChurchProfile from './ChurchProfile.jsx';
+
+const ChurchProfile = lazy(() => import('./ChurchProfile.jsx'));
+const ImportExportModals = lazy(() => import('../components/ImportExportModals.jsx'));
 
 function getDirectoryCounts() {
   return {
@@ -113,7 +114,9 @@ function ChurchProfileModal({ churchId, onClose }) {
         <button className="church-modal-close" onClick={requestClose} aria-label="Close">
           <IconX stroke={1.75} />
         </button>
-        <ChurchProfile churchId={churchId} />
+        <Suspense fallback={<div className="backend-splash">Loading profile…</div>}>
+          <ChurchProfile churchId={churchId} />
+        </Suspense>
       </div>
     </div>
   );
@@ -251,8 +254,14 @@ function DatabaseWidget({ statusFilter, setStatusFilter }) {
         </tbody>
       </table>
       {adding && <ChurchForm onSave={() => setAdding(false)} onCancel={() => setAdding(false)} />}
-      {importing && <ImportModal onClose={() => setImporting(false)} />}
-      {exporting && <ExportModal onClose={() => setExporting(false)} />}
+      {(importing || exporting) && (
+        <Suspense fallback={null}>
+          <ImportExportModals
+            mode={importing ? 'import' : 'export'}
+            onClose={() => { setImporting(false); setExporting(false); }}
+          />
+        </Suspense>
+      )}
       {profileId && <ChurchProfileModal churchId={profileId} onClose={() => setProfileId(null)} />}
     </div>
   );

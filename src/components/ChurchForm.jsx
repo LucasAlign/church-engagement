@@ -1,10 +1,10 @@
 // Canonical church add/edit form. One field list shared by the home "Add
 // church" action and the profile "Edit" button so the form and the profile
-// can never drift. Writes through to db + Supabase (saveRecord).
+// can never drift. Writes through to the Replit API (saveRecord).
 import { useState } from 'react';
 import db from '../data/db.js';
 import { saveRecord } from '../data/backend.js';
-import { TODAY } from '../data/helpers.js';
+import { genId, TODAY } from '../data/helpers.js';
 import { ENGAGEMENT_STATUS_FILTERS } from '../data/labels.js';
 import FormModal from './FormModal.jsx';
 
@@ -47,7 +47,7 @@ export default function ChurchForm({ church, onSave, onCancel }) {
     r.attendanceMax = toInt(r.attendanceMax);
 
     if (!r.id) {
-      r.id = `ch_${Date.now()}`;
+      r.id = genId('ch');
       r.createdAt = TODAY;
       r.firstContactDate = r.firstContactDate || null;
       r.lastInteractionDate = r.lastInteractionDate || null;

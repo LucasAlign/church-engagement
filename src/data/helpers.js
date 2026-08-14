@@ -1,10 +1,9 @@
 // helpers.js — derived values over the mock db.
-// When moving to a real backend, replace each with a Supabase query or SQL view.
+// Mutations update this cache and write through to the Replit API.
 import db from './db.js';
 import { saveRecord } from './backend.js';
 
-// Frozen "today" so the prototype renders deterministically.
-export const TODAY = '2026-06-09';
+export const TODAY = new Date().toISOString().slice(0, 10);
 
 // --- engagement status migration -------------------------------------------
 // Old taxonomy -> new taxonomy. active_partner->partnering, strategic_partner
@@ -35,8 +34,11 @@ export function migrateEngagementStatuses() {
 // Church profile — aggregate giving summary
 export function getChurchGivingSummary(churchId) {
   const records = db.givingRecords.filter(g => g.churchId === churchId);
-  const thisYear = records.filter(g => g.date >= '2026-01-01');
-  const lastYear = records.filter(g => g.date >= '2025-01-01' && g.date < '2026-01-01');
+  const year = Number(TODAY.slice(0, 4));
+  const thisYearStart = `${year}-01-01`;
+  const lastYearStart = `${year - 1}-01-01`;
+  const thisYear = records.filter(g => g.date >= thisYearStart);
+  const lastYear = records.filter(g => g.date >= lastYearStart && g.date < thisYearStart);
   const total = records.reduce((s, g) => s + g.amount, 0);
   const thisYearTotal = thisYear.reduce((s, g) => s + g.amount, 0);
   const lastYearTotal = lastYear.reduce((s, g) => s + g.amount, 0);
@@ -122,15 +124,16 @@ export function getPipelineCounts() {
   }));
 }
 
-// --- prototype-only mutations; swap for Supabase inserts/updates later ---
-let seq = 100;
+// --- mutations -------------------------------------------------------------
 let _dbListeners = [];
 function notifyDb() { _dbListeners.forEach(fn => fn()); }
 export function subscribeDb(fn) { _dbListeners.push(fn); return () => { _dbListeners = _dbListeners.filter(f => f !== fn); }; }
 
 // ID generator for new records (prefix-based)
 export function genId(prefix) {
-  return `${prefix}_${++seq}`;
+  const uuid = globalThis.crypto?.randomUUID?.()
+    || `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+  return `${prefix}_${uuid}`;
 }
 
 export function addContact({ churchId, name, position, email, phone, kfaRole, preferredContact, notes }) {
@@ -162,7 +165,7 @@ export function updateAdvocate(id, fields) {
 }
 export function addConnection({ churchId, name, type, status, notes }) {
   if (!db.connections) db.connections = [];
-  const rec = { id: genId('conn'), churchId, name, type: type || 'other', status: status || 'active', notes: notes || null, createdAt: TODAY };
+  const rec = { id: genId('conn'), churchId, name, connectionType: type || 'other', status: status || 'active', notes: notes || null, createdAt: TODAY };
   db.connections.push(rec); saveRecord('connections', rec); notifyDb();
 }
 export function updateConnection(id, fields) {
@@ -214,7 +217,10 @@ export function addInteraction({ churchId, type, date, notes }) {
   };
   db.interactions.unshift(rec); saveRecord('interactions', rec);
   const church = getChurchById(churchId);
-  if (church && date > church.lastInteractionDate) { church.lastInteractionDate = date; saveRecord('churches', church); }
+  if (church && (!church.lastInteractionDate || date > church.lastInteractionDate)) {
+    church.lastInteractionDate = date;
+    saveRecord('churches', church);
+  }
 }
 export function addNote({ churchId, body, pinned, internalOnly }) {
   const rec = {

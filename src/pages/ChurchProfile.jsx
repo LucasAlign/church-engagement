@@ -11,6 +11,7 @@ import {
   getCongregantsByChurch, addCongregant, updateCongregantContact,
   getLastContactForContact, contactStatus,
   getAdvocatesByChurch, addAdvocate, addMinistryEngagement, addTask,
+  genId,
 } from '../data/helpers.js';
 import {
   ENGAGEMENT_STATUS, GIVING_STATUS, INTERACTION_TYPE, MINISTRY_TYPE,
@@ -51,7 +52,7 @@ function StaffForm({ contact, churchId, onSave, onCancel }) {
     setLoading(true);
     try {
       if (!formData.id) {
-        formData.id = `ct_${Date.now()}`;
+        formData.id = genId('ct');
       }
       const existing = db.contacts.findIndex(c => c.id === formData.id);
       if (existing >= 0) {
@@ -126,7 +127,7 @@ function CongregantForm({ congregant, churchId, onSave, onCancel }) {
           saveRecord('notableCongregants', formData);
         }
       } else {
-        formData.id = `cg_${Date.now()}`;
+        formData.id = genId('cg');
         db.notableCongregants.push(formData);
         saveRecord('notableCongregants', formData);
       }

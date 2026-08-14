@@ -1,6 +1,7 @@
 // Shared building blocks: Badge, MetricCard, AvatarInitials, SearchBar,
 // FilterPills, CSSBarChart, EmptyState, Modal.
 import { IconSearch, IconX } from '@tabler/icons-react';
+import { useEffect, useId } from 'react';
 import { initialsOf } from '../data/labels.js';
 
 // Green dot = contacted within 90 days, red = overdue or never
@@ -109,11 +110,17 @@ export function EmptyState({ icon: Icon, title, sub }) {
 }
 
 export function Modal({ title, onClose, footer, children, wide }) {
+  const titleId = useId();
+  useEffect(() => {
+    const onKeyDown = event => { if (event.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
   return (
     <div className="modal-overlay" onMouseDown={e => e.target === e.currentTarget && onClose()}>
-      <div className={`modal ${wide ? 'wide' : ''}`}>
+      <div className={`modal ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <div className="modal-header">
-          <div className="modal-title">{title}</div>
+          <div className="modal-title" id={titleId}>{title}</div>
           <button className="icon-btn" onClick={onClose} aria-label="Close">
             <IconX />
           </button>

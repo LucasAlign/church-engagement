@@ -3,7 +3,7 @@
 
 // Current engagement taxonomy. Legacy keys (active_partner, strategic_partner,
 // interested, initial_contact, not_contacted, dormant) are kept as aliases so
-// any un-migrated rows from Supabase still render a correct badge; the
+// any un-migrated rows from the backend still render a correct badge; the
 // migration in helpers.js rewrites them to the new keys at load time.
 export const ENGAGEMENT_STATUS = {
   partnering:     { label: 'Partnering', variant: 'green' },
