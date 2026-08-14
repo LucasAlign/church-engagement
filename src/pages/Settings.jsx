@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getUserById, updateUser } from '../data/helpers.js';
+import { getCurrentUser, updateUser } from '../data/helpers.js';
 import { Header } from '../components/layout.jsx';
 import { AvatarInitials } from '../components/shared.jsx';
 import { initialsOf } from '../data/labels.js';
@@ -7,7 +7,7 @@ import { useDb } from '../data/store.jsx';
 
 export default function Settings() {
   const { refresh } = useDb();
-  const me = getUserById('usr_001');
+  const me = getCurrentUser();
   const [name, setName] = useState(me?.name || '');
   const [email, setEmail] = useState(me?.email || '');
   const [saved, setSaved] = useState(false);

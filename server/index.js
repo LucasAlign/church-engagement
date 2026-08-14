@@ -201,6 +201,10 @@ app.patch('/api/tasks/:id/toggle', async (req, res, next) => {
 async function start() {
   const PORT = process.env.PORT || 5000;
   await pool.query("ALTER TABLE churches ADD COLUMN IF NOT EXISTS kfa_associations text[] NOT NULL DEFAULT '{}'");
+  await pool.query(
+    `UPDATE users SET name = 'Admin', role = 'Administrator', email = 'admin@keyfam.org', initials = 'A'
+     WHERE id = 'usr_001' AND name = 'Sarah Chen'`
+  );
   const httpServer = http.createServer(app);
 
   if (isProd) {
