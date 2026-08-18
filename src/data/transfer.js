@@ -110,6 +110,7 @@ export const ENTITIES = [
       field('lastInteractionDate', 'Last Interaction Date', F.date),
       field('assignedCoordinatorId', 'Coordinator', F.user),
       field('hasCareCommmunity', 'Has Care Community', F.bool),
+      field('notes', 'Notes'),
     ],
   },
   {
@@ -312,11 +313,20 @@ function buildEntityPlan(ent, rows, pendingChurchNames) {
     }
 
     if (existing) {
+      // On update, a blank imported cell must not erase an existing value, so
+      // only fields with a non-empty imported value are applied ("fill-in"
+      // import). Clearing a field still works through the in-app editors.
+      const isEmpty = v => v === null || v === undefined || v === '' ||
+        (Array.isArray(v) && v.length === 0);
+      const updateRecord = {};
+      for (const f of ent.fields) {
+        if (f.key in record && !isEmpty(record[f.key])) updateRecord[f.key] = record[f.key];
+      }
       const changes = ent.fields
-        .filter(f => f.key in record && JSON.stringify(record[f.key]) !== JSON.stringify(existing[f.key]))
+        .filter(f => f.key in updateRecord && JSON.stringify(updateRecord[f.key]) !== JSON.stringify(existing[f.key]))
         .map(f => f.header);
       if (!changes.length) return { idx, label, action: 'unchanged', existing };
-      return { idx, label, action: 'update', changes, record, existing };
+      return { idx, label, action: 'update', changes, record: updateRecord, existing };
     }
     if (!record[ent.matchOn || ent.fields[0].key]) {
       return { idx, label, action: 'error', reason: 'Missing required name field' };

@@ -136,6 +136,35 @@ app.put('/api/collections/churches/:id', async (req, res, next) => {
   }
 });
 
+// Contact (church staff) upsert — used by the church profile staff editor
+// and by the data importer's Staff sheet. The frontend carries the role in
+// `title` (mapped to the `position` column) while the importer sends
+// `position`, so accept either.
+app.put('/api/collections/contacts/:id', async (req, res, next) => {
+  const contact = req.body;
+  if (!contact.churchId) return res.status(400).json({ error: 'churchId is required' });
+  if (!contact.name) return res.status(400).json({ error: 'name is required' });
+  try {
+    await pool.query(
+      `INSERT INTO contacts (
+         id, church_id, name, position, email, phone,
+         preferred_contact, kfa_role, notes, archived
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT (id) DO UPDATE SET
+         church_id = EXCLUDED.church_id, name = EXCLUDED.name, position = EXCLUDED.position,
+         email = EXCLUDED.email, phone = EXCLUDED.phone,
+         preferred_contact = EXCLUDED.preferred_contact, kfa_role = EXCLUDED.kfa_role,
+         notes = EXCLUDED.notes, archived = EXCLUDED.archived`,
+      [contact.id, contact.churchId, contact.name, contact.position || contact.title || null,
+       contact.email || null, contact.phone || null, contact.preferredContact || null,
+       contact.kfaRole || null, contact.notes || null, Boolean(contact.archived)]
+    );
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Task upsert used by the dashboard add/edit/complete actions.
 app.put('/api/collections/tasks/:id', async (req, res, next) => {
   const task = req.body;
