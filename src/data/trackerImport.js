@@ -13,6 +13,7 @@
 // already imports — so nothing downstream has to change.
 
 import * as XLSX from 'xlsx';
+import { SSF } from 'xlsx';
 import { INTERACTION_TYPE } from './labels.js';
 
 // Header aliases -> canonical tracker column.
@@ -89,7 +90,7 @@ function toIsoDate(v) {
   if (typeof v === 'number' || /^\d{4,6}$/.test(String(v).trim())) {
     const n = Number(v);
     if (n > 20000 && n < 60000) {
-      const d = XLSX.SSF.parse_date_code(n);
+      const d = SSF.parse_date_code(n);
       if (d) return `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`;
     }
   }

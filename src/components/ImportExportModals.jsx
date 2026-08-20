@@ -82,7 +82,7 @@ export function ImportModal({ onClose }) {
       setSelected(defaults);
       setError(parsed.some(g => g.items.length) ? null : 'No importable rows found in that file.');
     } catch {
-      setError('Could not read that file. Use a .xlsx or .csv exported from this app.');
+      setError('Could not read that file. Use a .xlsx, legacy .xls, or .csv file.');
     }
   };
 
@@ -153,9 +153,9 @@ export function ImportModal({ onClose }) {
           onDrop={e => { e.preventDefault(); choose(e.dataTransfer.files[0]); }}
         >
           <IconUpload stroke={1.5} />
-          <div>Drop a .xlsx or .csv file here, or click to browse.</div>
+          <div>Drop a .xlsx, legacy .xls, or .csv file here, or click to browse.</div>
           <div style={{ marginTop: 4, fontSize: 12 }}>
-            Use the Export button to download a template with the expected columns.
+            Use the Export button to download a template, or import a Church Tracking spreadsheet.
           </div>
         </div>
       )}
