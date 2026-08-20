@@ -88,6 +88,11 @@ export function getMinistryByChurch(churchId) {
 export function getUserById(id) {
   return db.users.find(u => u.id === id);
 }
+// Authentication will replace this lookup. Until then, use the first hydrated
+// account instead of coupling the UI to a seeded user ID.
+export function getCurrentUser() {
+  return db.users[0] || null;
+}
 export function getContactById(id) {
   return db.contacts.find(c => c.id === id);
 }

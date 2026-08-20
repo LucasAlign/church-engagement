@@ -5,7 +5,7 @@ import {
   IconSettings,
   IconLogout,
 } from '@tabler/icons-react';
-import { getUserById } from '../data/helpers.js';
+import { getCurrentUser } from '../data/helpers.js';
 import { useDb } from '../data/store.jsx';
 import { AvatarInitials } from './shared.jsx';
 
@@ -89,7 +89,7 @@ function AvatarMenu({ me }) {
 }
 
 function TopNav() {
-  const me = getUserById('usr_001') || { name: 'User', initials: 'U' };
+  const me = getCurrentUser() || { name: 'Admin', initials: 'A' };
   return (
     <header className="top-nav">
       <div className="top-nav-left">

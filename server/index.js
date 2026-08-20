@@ -305,6 +305,10 @@ async function start() {
     members jsonb NOT NULL DEFAULT '[]'::jsonb,
     notes text
   )`);
+  await pool.query(
+    `UPDATE users SET name = 'Admin', role = 'Administrator', email = 'admin@keyfam.org', initials = 'A'
+     WHERE id = 'usr_001' AND name = 'Sarah Chen'`
+  );
   const httpServer = http.createServer(app);
 
   if (isProd) {
