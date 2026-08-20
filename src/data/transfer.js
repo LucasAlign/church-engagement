@@ -6,6 +6,7 @@
 import * as XLSX from 'xlsx';
 import db from './db.js';
 import { saveRecord } from './backend.js';
+import { detectTracker, expandTracker } from './trackerImport.js';
 import { genId, TODAY } from './helpers.js';
 import {
   ENGAGEMENT_STATUS, GIVING_TYPE, INTERACTION_TYPE, MINISTRY_TYPE, MINISTRY_STATUS,
@@ -110,6 +111,7 @@ export const ENTITIES = [
       field('lastInteractionDate', 'Last Interaction Date', F.date),
       field('assignedCoordinatorId', 'Coordinator', F.user),
       field('hasCareCommmunity', 'Has Care Community', F.bool),
+      field('notes', 'Notes'),
     ],
   },
   {
@@ -312,11 +314,20 @@ function buildEntityPlan(ent, rows, pendingChurchNames) {
     }
 
     if (existing) {
+      // On update, a blank imported cell must not erase an existing value, so
+      // only fields with a non-empty imported value are applied ("fill-in"
+      // import). Clearing a field still works through the in-app editors.
+      const isEmpty = v => v === null || v === undefined || v === '' ||
+        (Array.isArray(v) && v.length === 0);
+      const updateRecord = {};
+      for (const f of ent.fields) {
+        if (f.key in record && !isEmpty(record[f.key])) updateRecord[f.key] = record[f.key];
+      }
       const changes = ent.fields
-        .filter(f => f.key in record && JSON.stringify(record[f.key]) !== JSON.stringify(existing[f.key]))
+        .filter(f => f.key in updateRecord && JSON.stringify(updateRecord[f.key]) !== JSON.stringify(existing[f.key]))
         .map(f => f.header);
       if (!changes.length) return { idx, label, action: 'unchanged', existing };
-      return { idx, label, action: 'update', changes, record, existing };
+      return { idx, label, action: 'update', changes, record: updateRecord, existing };
     }
     if (!record[ent.matchOn || ent.fields[0].key]) {
       return { idx, label, action: 'error', reason: 'Missing required name field' };
@@ -331,32 +342,48 @@ export async function parseImportFile(file) {
   const wb = XLSX.read(data, { type: 'array', cellDates: true });
   const groups = [];
 
-  // Collect new church names first so child rows in the same file can
-  // reference churches that don't exist yet.
-  const pendingChurchNames = new Set();
+  // Build the working list of { name, rows }. A human tracking sheet is
+  // detected and expanded into the Churches / Staff / Interactions sheets the
+  // rest of this function already knows how to import; other sheets pass
+  // through unchanged.
+  const sheets = [];
   for (const sheetName of wb.SheetNames) {
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: '' });
     if (!rows.length) continue;
-    const ent = matchEntity(sheetName, Object.keys(rows[0]));
+    const trackerMap = detectTracker(Object.keys(rows[0]));
+    if (trackerMap) {
+      const expanded = expandTracker(rows, trackerMap);
+      if (expanded.churches.length) sheets.push({ name: 'Churches', rows: expanded.churches });
+      if (expanded.staff.length) sheets.push({ name: 'Staff', rows: expanded.staff });
+      if (expanded.interactions.length) sheets.push({ name: 'Interactions', rows: expanded.interactions });
+      if (expanded.notes.length) sheets.push({ name: 'Notes', rows: expanded.notes });
+    } else {
+      sheets.push({ name: sheetName, rows });
+    }
+  }
+
+  // Collect new church names first so child rows in the same file can
+  // reference churches that don't exist yet.
+  const pendingChurchNames = new Set();
+  for (const { name, rows } of sheets) {
+    const ent = matchEntity(name, Object.keys(rows[0]));
     if (ent?.key === 'churches') {
       for (const row of rows) {
-        const name = String(row.Name ?? '').trim();
-        if (name && !db.churches.find(c => norm(c.name) === norm(name))) {
-          pendingChurchNames.add(norm(name));
+        const churchName = String(row.Name ?? '').trim();
+        if (churchName && !db.churches.find(c => norm(c.name) === norm(churchName))) {
+          pendingChurchNames.add(norm(churchName));
         }
       }
     }
   }
 
-  for (const sheetName of wb.SheetNames) {
-    const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: '' });
-    if (!rows.length) continue;
-    const ent = matchEntity(sheetName, Object.keys(rows[0]));
+  for (const { name, rows } of sheets) {
+    const ent = matchEntity(name, Object.keys(rows[0]));
     if (!ent) {
-      groups.push({ entity: null, sheetName, items: [], error: 'Columns not recognized' });
+      groups.push({ entity: null, sheetName: name, items: [], error: 'Columns not recognized' });
       continue;
     }
-    groups.push({ ...buildEntityPlan(ent, rows, pendingChurchNames), sheetName });
+    groups.push({ ...buildEntityPlan(ent, rows, pendingChurchNames), sheetName: name });
   }
   return groups;
 }

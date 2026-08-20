@@ -9,6 +9,7 @@ import { pool } from './db.js';
 import {
   mapUser, mapChurch, mapContact, mapInteraction, mapTask,
   mapGivingRecord, mapMinistryEngagement, mapImpactReport, mapChurchNote,
+  mapAdvocate, mapCareCommunity,
 } from './transform.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -20,7 +21,7 @@ app.use(express.json());
 // Full dataset, shaped exactly like the old src/data/db.js mock object.
 app.get('/api/db', async (req, res, next) => {
   try {
-    const [users, churches, contacts, interactions, tasks, givingRecords, ministryEngagements, impactReports, churchNotes] =
+    const [users, churches, contacts, interactions, tasks, givingRecords, ministryEngagements, impactReports, churchNotes, advocates, careCommunities] =
       await Promise.all([
         pool.query('SELECT * FROM users ORDER BY id'),
         pool.query('SELECT * FROM churches ORDER BY id'),
@@ -31,6 +32,8 @@ app.get('/api/db', async (req, res, next) => {
         pool.query('SELECT * FROM ministry_engagements ORDER BY id'),
         pool.query('SELECT * FROM impact_reports ORDER BY id'),
         pool.query('SELECT * FROM church_notes ORDER BY id'),
+        pool.query('SELECT * FROM advocates ORDER BY id'),
+        pool.query('SELECT * FROM care_communities ORDER BY id'),
       ]);
     res.json({
       users: users.rows.map(mapUser),
@@ -42,6 +45,8 @@ app.get('/api/db', async (req, res, next) => {
       ministryEngagements: ministryEngagements.rows.map(mapMinistryEngagement),
       impactReports: impactReports.rows.map(mapImpactReport),
       churchNotes: churchNotes.rows.map(mapChurchNote),
+      advocates: advocates.rows.map(mapAdvocate),
+      careCommunities: careCommunities.rows.map(mapCareCommunity),
     });
   } catch (err) {
     next(err);
@@ -136,6 +141,80 @@ app.put('/api/collections/churches/:id', async (req, res, next) => {
   }
 });
 
+// Contact (church staff) upsert — used by the church profile staff editor
+// and by the data importer's Staff sheet. The frontend carries the role in
+// `title` (mapped to the `position` column) while the importer sends
+// `position`, so accept either.
+app.put('/api/collections/contacts/:id', async (req, res, next) => {
+  const contact = req.body;
+  if (!contact.churchId) return res.status(400).json({ error: 'churchId is required' });
+  if (!contact.name) return res.status(400).json({ error: 'name is required' });
+  try {
+    await pool.query(
+      `INSERT INTO contacts (
+         id, church_id, name, position, email, phone,
+         preferred_contact, kfa_role, notes, archived
+       ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       ON CONFLICT (id) DO UPDATE SET
+         church_id = EXCLUDED.church_id, name = EXCLUDED.name, position = EXCLUDED.position,
+         email = EXCLUDED.email, phone = EXCLUDED.phone,
+         preferred_contact = EXCLUDED.preferred_contact, kfa_role = EXCLUDED.kfa_role,
+         notes = EXCLUDED.notes, archived = EXCLUDED.archived`,
+      [contact.id, contact.churchId, contact.name, contact.position || contact.title || null,
+       contact.email || null, contact.phone || null, contact.preferredContact || null,
+       contact.kfaRole || null, contact.notes || null, Boolean(contact.archived)]
+    );
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Advocate upsert — church-profile Advocate tab and the importer's Advocates sheet.
+app.put('/api/collections/advocates/:id', async (req, res, next) => {
+  const adv = req.body;
+  if (!adv.churchId) return res.status(400).json({ error: 'churchId is required' });
+  if (!adv.name) return res.status(400).json({ error: 'name is required' });
+  try {
+    await pool.query(
+      `INSERT INTO advocates (id, church_id, name, email, phone, role, status, trained_date, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (id) DO UPDATE SET
+         church_id = EXCLUDED.church_id, name = EXCLUDED.name, email = EXCLUDED.email,
+         phone = EXCLUDED.phone, role = EXCLUDED.role, status = EXCLUDED.status,
+         trained_date = EXCLUDED.trained_date, notes = EXCLUDED.notes`,
+      [adv.id, adv.churchId, adv.name, adv.email || null, adv.phone || null,
+       adv.role || null, adv.status || null, adv.trainedDate || null, adv.notes || null]
+    );
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Care community upsert — created by the church form and the importer's Care
+// Communities sheet. `members` is a JSON array of { name, role }.
+app.put('/api/collections/careCommunities/:id', async (req, res, next) => {
+  const cc = req.body;
+  if (!cc.churchId) return res.status(400).json({ error: 'churchId is required' });
+  if (!cc.name) return res.status(400).json({ error: 'name is required' });
+  try {
+    await pool.query(
+      `INSERT INTO care_communities (id, church_id, name, status, lead, family_served, start_date, members, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (id) DO UPDATE SET
+         church_id = EXCLUDED.church_id, name = EXCLUDED.name, status = EXCLUDED.status,
+         lead = EXCLUDED.lead, family_served = EXCLUDED.family_served,
+         start_date = EXCLUDED.start_date, members = EXCLUDED.members, notes = EXCLUDED.notes`,
+      [cc.id, cc.churchId, cc.name, cc.status || null, cc.lead || null, cc.familyServed || null,
+       cc.startDate || null, JSON.stringify(cc.members || []), cc.notes || null]
+    );
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Task upsert used by the dashboard add/edit/complete actions.
 app.put('/api/collections/tasks/:id', async (req, res, next) => {
   const task = req.body;
@@ -170,6 +249,7 @@ app.delete('/api/tasks/:id', async (req, res, next) => {
 const PROFILE_RECORD_TABLES = {
   contacts: 'contacts', interactions: 'interactions',
   ministryEngagements: 'ministry_engagements', churchNotes: 'church_notes', tasks: 'tasks',
+  advocates: 'advocates', careCommunities: 'care_communities',
 };
 app.delete('/api/profile-records/:collection/:id', async (req, res, next) => {
   const table = PROFILE_RECORD_TABLES[req.params.collection];
@@ -201,6 +281,30 @@ app.patch('/api/tasks/:id/toggle', async (req, res, next) => {
 async function start() {
   const PORT = process.env.PORT || 5000;
   await pool.query("ALTER TABLE churches ADD COLUMN IF NOT EXISTS kfa_associations text[] NOT NULL DEFAULT '{}'");
+  // Advocates and care communities were UI-only until now; create their tables
+  // (idempotently, matching the app's other startup DDL) so both persist.
+  await pool.query(`CREATE TABLE IF NOT EXISTS advocates (
+    id text PRIMARY KEY,
+    church_id text,
+    name text NOT NULL,
+    email text,
+    phone text,
+    role text,
+    status text,
+    trained_date date,
+    notes text
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS care_communities (
+    id text PRIMARY KEY,
+    church_id text,
+    name text NOT NULL,
+    status text,
+    lead text,
+    family_served text,
+    start_date date,
+    members jsonb NOT NULL DEFAULT '[]'::jsonb,
+    notes text
+  )`);
   await pool.query(
     `UPDATE users SET name = 'Admin', role = 'Administrator', email = 'admin@keyfam.org', initials = 'A'
      WHERE id = 'usr_001' AND name = 'Sarah Chen'`
