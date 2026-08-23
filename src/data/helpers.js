@@ -100,7 +100,7 @@ export function getCongregantsByChurch(churchId) {
   return db.notableCongregants.filter(c => c.churchId === churchId);
 }
 export function removeProfileRecord(collection, id) {
-  const allowed = ['contacts', 'interactions', 'ministryEngagements', 'churchNotes', 'tasks', 'notableCongregants', 'advocates'];
+  const allowed = ['contacts', 'interactions', 'ministryEngagements', 'churchNotes', 'tasks', 'notableCongregants', 'advocates', 'careCommunities'];
   if (!allowed.includes(collection)) return;
   const records = db[collection];
   const index = records.findIndex(record => record.id === id);
@@ -157,10 +157,15 @@ export function addContact({ churchId, name, position, email, phone, kfaRole, pr
 export function updateContact(id, fields) {
   const c = db.contacts.find(x => x.id === id); if (c) { Object.assign(c, fields); saveRecord('contacts', c); } notifyDb();
 }
-export function addCareCommunity({ churchId, name, status, startDate, notes }) {
+export function getCareCommunitiesByChurch(churchId) {
+  return (db.careCommunities || []).filter(c => c.churchId === churchId);
+}
+export function addCareCommunity({ churchId, name, status, lead, familyServed, startDate, members, notes }) {
   if (!db.careCommunities) db.careCommunities = [];
-  const rec = { id: genId('cc'), churchId, name, status: status || 'forming', startDate: startDate || null, notes: notes || null, createdAt: TODAY };
-  db.careCommunities.push(rec); saveRecord('careCommunities', rec); notifyDb();
+  const rec = { id: genId('cc'), churchId, name, status: status || 'forming', lead: lead || null,
+    familyServed: familyServed || null, startDate: startDate || null, members: members || [],
+    notes: notes || null, createdAt: TODAY };
+  db.careCommunities.push(rec); saveRecord('careCommunities', rec); notifyDb(); return rec.id;
 }
 export function updateCareCommunity(id, fields) {
   if (!db.careCommunities) return; const c = db.careCommunities.find(x => x.id === id); if (c) { Object.assign(c, fields); saveRecord('careCommunities', c); } notifyDb();

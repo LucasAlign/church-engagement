@@ -59,6 +59,18 @@ export const mapImpactReport = row => ({
   uploadedBy: row.uploaded_by, uploadedAt: dateOnly(row.uploaded_at), url: row.url,
 });
 
+export const mapAdvocate = row => ({
+  id: row.id, churchId: row.church_id, name: row.name, email: row.email,
+  phone: row.phone, role: row.role, status: row.status,
+  trainedDate: dateOnly(row.trained_date), notes: row.notes,
+});
+
+export const mapCareCommunity = row => ({
+  id: row.id, churchId: row.church_id, name: row.name, status: row.status,
+  lead: row.lead, familyServed: row.family_served,
+  startDate: dateOnly(row.start_date), members: row.members || [], notes: row.notes,
+});
+
 export const mapChurchNote = row => ({
   id: row.id, churchId: row.church_id, body: row.body, authorId: row.author_id,
   pinned: row.pinned, internalOnly: row.internal_only, createdAt: dateOnly(row.created_at),
