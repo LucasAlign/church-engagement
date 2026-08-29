@@ -13,11 +13,15 @@ const STATUS_OPTIONS = ENGAGEMENT_STATUS_FILTERS
   .map(f => ({ value: f.value, label: f.label }));
 
 // Mirrors exactly what the church profile displays.
-const FIELDS = [
+const ESSENTIAL_FIELDS = [
   { label: 'Name', key: 'name', required: true },
+  { label: 'City', key: 'city' },
+  { label: 'Relationship stage', key: 'engagementStatus', type: 'select', options: STATUS_OPTIONS },
+];
+
+const DETAIL_FIELDS = [
   { label: 'Denomination', key: 'denomination' },
   { label: 'County', key: 'county', placeholder: 'Berks' },
-  { label: 'City', key: 'city' },
   { label: 'State', key: 'state', placeholder: 'PA' },
   { label: 'Zip', key: 'zip' },
   { label: 'Address', key: 'address' },
@@ -26,14 +30,15 @@ const FIELDS = [
   { label: 'Website', key: 'website' },
   { label: 'Min Attendance', key: 'attendanceMin', type: 'number' },
   { label: 'Max Attendance', key: 'attendanceMax', type: 'number' },
-  { label: 'Engagement Status', key: 'engagementStatus', type: 'select', options: STATUS_OPTIONS },
   { label: 'Notes', key: 'notes', type: 'textarea' },
 ];
 
 const toInt = v => (v === '' || v == null ? null : (parseInt(v, 10) || 0));
 
 export default function ChurchForm({ church, onSave, onCancel }) {
-  const [formData, setFormData] = useState(church || {});
+  const [formData, setFormData] = useState(() => church || {
+    engagementStatus: STATUS_OPTIONS[0].value,
+  });
   const handleChange = (field, value) => setFormData(prev => ({ ...prev, [field]: value }));
 
   const handleSave = () => {
@@ -65,7 +70,7 @@ export default function ChurchForm({ church, onSave, onCancel }) {
   return (
     <FormModal
       title={church?.id ? 'Edit Church' : 'Add Church'}
-      fields={FIELDS}
+      fields={church?.id ? [...ESSENTIAL_FIELDS, ...DETAIL_FIELDS] : ESSENTIAL_FIELDS}
       formData={formData}
       onChange={handleChange}
       onSave={handleSave}

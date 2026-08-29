@@ -1,5 +1,7 @@
+import { useState } from 'react';
 import db from '../data/db.js';
-import { getPipelineCounts } from '../data/helpers.js';
+import { getPipelineCounts, TODAY } from '../data/helpers.js';
+import { buildLeadershipSummary } from '../data/agentic.js';
 import { ENGAGEMENT_STATUS, ENGAGEMENT_STATUS_ORDER, ENGAGEMENT_MINISTRIES } from '../data/labels.js';
 import { Header } from '../components/layout.jsx';
 import { CSSBarChart, EmptyState } from '../components/shared.jsx';
@@ -29,6 +31,10 @@ function ChartCard({ title, children }) {
 
 export default function Analytics() {
   const hasData = db.churches.length > 0;
+  const [showWeeklyDraft, setShowWeeklyDraft] = useState(false);
+  const summary = buildLeadershipSummary(db, TODAY);
+  const defaultDraft = `Weekly relationship update (${summary.period})\n\n${summary.churchesContacted} churches were contacted across ${summary.interactions} interactions. ${summary.completedFollowUps} follow-ups are marked complete. We currently have ${summary.partneringChurches} partnering churches, and ${summary.needsAttention} relationships or tasks need attention.\n\nHighlights:\n- Add the most important progress here.\n\nSupport needed:\n- Add decisions or help needed here.`;
+  const [weeklyDraft, setWeeklyDraft] = useState(defaultDraft);
 
   // 1. Church Engagement — counts by engagement status, colored by status variant.
   const pipeline = getPipelineCounts();
@@ -92,6 +98,25 @@ export default function Analytics() {
   return (
     <>
       <Header title="Analytics" subtitle="Berks County — aggregate engagement metrics" />
+      <section className="card weekly-summary">
+        <div className="weekly-summary-head">
+          <div><div className="card-title">Weekly leadership summary</div><p>Create a sourced draft, review it, and edit it before sharing.</p></div>
+          <button className="btn primary" type="button" onClick={() => setShowWeeklyDraft(value => !value)}>{showWeeklyDraft ? 'Close draft' : 'Prepare weekly summary'}</button>
+        </div>
+        {showWeeklyDraft && (
+          <div className="weekly-summary-editor">
+            <div className="weekly-summary-sources">
+              <span>{summary.interactions} interactions</span>
+              <span>{summary.completedFollowUps} completed follow-ups</span>
+              <span>{summary.partneringChurches} partnering churches</span>
+              <span>{summary.needsAttention} need attention</span>
+            </div>
+            <label className="field-label" htmlFor="weekly-summary-draft">Editable draft</label>
+            <textarea id="weekly-summary-draft" className="select" rows={10} value={weeklyDraft} onChange={event => setWeeklyDraft(event.target.value)} />
+            <div className="weekly-summary-note">This draft is not sent automatically.</div>
+          </div>
+        )}
+      </section>
       <div className="grid-2" style={{ marginBottom: 12 }}>
         <ChartCard title="Church Engagement">
           <CSSBarChart data={engagementData} />
@@ -104,7 +129,7 @@ export default function Analytics() {
               {ministryPlaceholders.map(p => (
                 <div className="analytics-chip" key={p.key}>
                   <span className="analytics-chip-label">{p.label}</span>
-                  <span className="analytics-chip-sub">feature request — needs data source</span>
+                  <span className="analytics-chip-sub">Data connection not configured</span>
                 </div>
               ))}
             </div>

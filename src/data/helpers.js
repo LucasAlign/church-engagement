@@ -137,7 +137,7 @@ export function genId(prefix) {
 }
 
 export function addContact({ churchId, name, position, email, phone, kfaRole, preferredContact, notes }) {
-  const rec = { id: genId('con'), churchId, name, title: position || '', role: 'staff', kfaRole: kfaRole || null, email: email || null, phone: phone || null, archived: false, createdAt: TODAY };
+  const rec = { id: genId('con'), churchId, name, title: position || '', role: 'staff', kfaRole: kfaRole || null, preferredContact: preferredContact || null, notes: notes || null, email: email || null, phone: phone || null, archived: false, createdAt: TODAY };
   db.contacts.push(rec); saveRecord('contacts', rec);
   notifyDb(); return rec.id;
 }

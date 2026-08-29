@@ -42,6 +42,10 @@ npm run dev          # frontend demo
 npm run dev:server   # API only (requires DATABASE_URL)
 npm run dev:full     # frontend + API
 npm run check        # regression tests + production build
+npm run test:e2e     # desktop/mobile browser and accessibility tests
+npm run deadcode     # unused files, exports, and dependencies
+npm run analyze      # build and write dist/bundle-report.html
+npm run security:audit # production dependency advisory scan
 npm start            # serve API and built frontend
 ```
 
@@ -71,6 +75,17 @@ src/
 
 ## Security
 
-Do not publish the API without authentication. Replit Auth must be provisioned
-inside Replit and enforced server-side on every `/api` route. Never expose
-`DATABASE_URL` or connect to PostgreSQL directly from browser code.
+Production refuses to start without an explicit authentication mode:
+
+- `AUTH_MODE=proxy` trusts the user identity header supplied by a trusted,
+  correctly configured authentication proxy. Set `AUTH_USER_HEADER` if the
+  proxy does not use `x-authenticated-user-id`. Never expose the app server
+  directly in this mode.
+- `AUTH_MODE=bearer` requires `API_AUTH_TOKEN` (at least 32 characters) and is
+  intended for machine-to-machine access.
+- `AUTH_MODE=none` is restricted to local development.
+
+Every API request is rate limited and validated server-side. Never expose
+`DATABASE_URL` or connect to PostgreSQL directly from browser code. Remote
+database certificates are verified unless `DATABASE_SSL_ALLOW_INVALID_CERT`
+is deliberately enabled for a provider that cannot supply a valid chain.

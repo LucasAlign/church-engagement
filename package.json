@@ -15,24 +15,47 @@
     "test:data": "node test-data.mjs",
     "test:server": "node test-server.mjs",
     "test:transfer": "node test-transfer.mjs",
-    "test": "npm run test:data && npm run test:server && npm run test:transfer",
-    "check": "npm test && npm run build"
+    "test": "npm run test:data && npm run test:server && npm run test:transfer && npm run test:agentic",
+    "test:agentic": "node test-agentic.mjs",
+    "test:e2e": "playwright test",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "deadcode": "knip",
+    "analyze": "cross-env ANALYZE=true npm run build",
+    "security:audit": "npm audit --omit=dev",
+    "check": "npm run lint && npm run typecheck && npm test && npm run build"
   },
   "dependencies": {
     "@tabler/icons-react": "^3.46.0",
+    "compression": "^1.8.1",
     "express": "^5.1.0",
+    "express-rate-limit": "^8.6.2",
+    "helmet": "^8.3.0",
     "pg": "^8.16.3",
+    "pino-http": "^11.0.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-router-dom": "^7.18.2",
-    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.62.1",
+    "@types/node": "^26.4.0",
     "@vitejs/plugin-react": "^6.0.5",
     "concurrently": "^9.2.1",
     "cross-env": "^10.1.0",
+    "eslint": "^10.9.1",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.5",
+    "globals": "^17.11.0",
+    "knip": "^6.32.3",
     "playwright": "^1.62.1",
     "puppeteer": "^25.7.0",
+    "rollup-plugin-visualizer": "^7.1.1",
+    "typescript": "^7.0.2",
     "vite": "^8.2.1"
   }
 }

@@ -36,4 +36,4 @@ db.givingRecords.push(
 const giving = getChurchGivingSummary('ch_1');
 check(giving.thisYearTotal === 150 && giving.lastYearTotal === 75, 'giving totals derive from the current year');
 
-process.exit(failures ? 1 : 0);
+process.exitCode = failures ? 1 : 0;

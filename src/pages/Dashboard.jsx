@@ -6,15 +6,28 @@ import {
 } from '@tabler/icons-react';
 import db from '../data/db.js';
 import {
-  contactStatus, isTaskOverdue, addTask, toggleTaskCompleted,
+  contactStatus, isTaskOverdue, addTask, toggleTaskCompleted, TODAY,
 } from '../data/helpers.js';
+import { getRelationshipSignals, parseDirectoryQuestion } from '../data/agentic.js';
 import { fmtDate, ENGAGEMENT_STATUS, ENGAGEMENT_STATUS_FILTERS, TASK_PRIORITY } from '../data/labels.js';
 import { useDb } from '../data/store.jsx';
 import { ContactDot, Badge } from '../components/shared.jsx';
 import ChurchForm from '../components/ChurchForm.jsx';
+import { Header } from '../components/layout.jsx';
 
 const ChurchProfile = lazy(() => import('./ChurchProfile.jsx'));
 const ImportExportModals = lazy(() => import('../components/ImportExportModals.jsx'));
+
+function SortHeader({ field, label, sortField, sortDir, onSort }) {
+  return (
+    <th>
+      <button type="button" onClick={() => onSort(field)} style={{ cursor: 'pointer', border: 0, background: 'none', font: 'inherit' }}>
+        {label}
+        {sortField === field && <span aria-hidden="true" style={{ marginLeft: 6, fontSize: '12px' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>}
+      </button>
+    </th>
+  );
+}
 
 function getDirectoryCounts() {
   return {
@@ -124,6 +137,8 @@ function ChurchProfileModal({ churchId, onClose }) {
 
 function DatabaseWidget({ statusFilter, setStatusFilter }) {
   const [search, setSearch] = useState('');
+  const [question, setQuestion] = useState('');
+  const [smartFilter, setSmartFilter] = useState(null);
   const [sortField, setSortField] = useState('name');
   const [sortDir, setSortDir] = useState('asc');
   const [profileId, setProfileId] = useState(null);
@@ -140,6 +155,15 @@ function DatabaseWidget({ statusFilter, setStatusFilter }) {
   if (search) {
     const q = search.toLowerCase();
     filtered = filtered.filter(r => r.name.toLowerCase().includes(q) || r.sub.toLowerCase().includes(q));
+  }
+
+  if (smartFilter?.status) filtered = filtered.filter(r => r.engagementStatus === smartFilter.status);
+  if (smartFilter?.missingAdvocate) filtered = filtered.filter(r => !r.fullRecord.assignedCoordinatorId);
+  if (smartFilter?.stale) {
+    const cutoff = new Date(`${TODAY}T12:00:00`);
+    cutoff.setDate(cutoff.getDate() - 90);
+    const cutoffIso = cutoff.toISOString().slice(0, 10);
+    filtered = filtered.filter(r => !r.lastContact || r.lastContact < cutoffIso);
   }
 
   filtered = [...filtered].sort((a, b) => {
@@ -161,17 +185,28 @@ function DatabaseWidget({ statusFilter, setStatusFilter }) {
     else { setSortField(field); setSortDir('asc'); }
   };
 
-  const SortHeader = ({ field, label }) => (
-    <th onClick={() => toggleSort(field)} style={{ cursor: 'pointer', userSelect: 'none', position: 'relative' }}>
-      {label}
-      {sortField === field && (
-        <span style={{ marginLeft: 6, fontSize: '12px' }}>{sortDir === 'asc' ? '▲' : '▼'}</span>
-      )}
-    </th>
-  );
-
   return (
-    <div className="card">
+    <>
+      {db.churches.length === 0 && (
+        <section className="card first-steps" aria-labelledby="first-steps-title">
+          <div className="first-steps-copy">
+            <div className="first-steps-kicker">Start here</div>
+            <h2 id="first-steps-title">Set up your church directory</h2>
+            <p>Add one church now, or bring in an existing spreadsheet. You can fill in the details gradually.</p>
+            <div className="first-steps-actions">
+              <button className="btn primary" type="button" onClick={() => setAdding(true)}>Add your first church</button>
+              <button className="btn" type="button" onClick={() => setImporting(true)}>Import a spreadsheet</button>
+            </div>
+          </div>
+          <ol className="first-steps-list">
+            <li><span>1</span><div><strong>Add or import churches</strong><small>Start with names and locations.</small></div></li>
+            <li><span>2</span><div><strong>Set relationship stages</strong><small>See where each relationship stands.</small></div></li>
+            <li><span>3</span><div><strong>Add primary contacts</strong><small>Record the best person to reach.</small></div></li>
+            <li><span>4</span><div><strong>Schedule your first follow-up</strong><small>Make the next step clear.</small></div></li>
+          </ol>
+        </section>
+      )}
+      <div className="card">
       <div className="db-card-inner">
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 4 }}>
           <div className="db-card-title">Database</div>
@@ -195,6 +230,26 @@ function DatabaseWidget({ statusFilter, setStatusFilter }) {
             placeholder="Search churches..."
           />
         </div>
+        <form
+          className="smart-search"
+          onSubmit={event => {
+            event.preventDefault();
+            setSmartFilter(question.trim() ? parseDirectoryQuestion(question) : null);
+          }}
+        >
+          <input value={question} onChange={event => setQuestion(event.target.value)} placeholder="Ask about your churches…" aria-label="Ask about your churches" />
+          <button className="btn sm" type="submit">Apply</button>
+          {smartFilter && <button className="btn sm" type="button" onClick={() => { setQuestion(''); setSmartFilter(null); }}>Clear</button>}
+        </form>
+        {smartFilter && (
+          <div className="smart-search-summary" role="status">
+            Showing visible filters: {[
+              smartFilter.status && ENGAGEMENT_STATUS[smartFilter.status]?.label,
+              smartFilter.missingAdvocate && 'No advocate',
+              smartFilter.stale && 'No contact in 90 days',
+            ].filter(Boolean).join(' · ') || 'No recognized filter'}
+          </div>
+        )}
         <div className="db-filter-row">
           <div className="db-filter-pills">
             {ENGAGEMENT_STATUS_FILTERS.map(f => (
@@ -216,9 +271,9 @@ function DatabaseWidget({ statusFilter, setStatusFilter }) {
       <table className="data-table">
         <thead>
           <tr>
-            <SortHeader field="name" label="CHURCH" />
+            <SortHeader field="name" label="CHURCH" sortField={sortField} sortDir={sortDir} onSort={toggleSort} />
             <th>STATUS</th>
-            <SortHeader field="lastContact" label="LAST CONTACT" />
+            <SortHeader field="lastContact" label="LAST CONTACT" sortField={sortField} sortDir={sortDir} onSort={toggleSort} />
             <th style={{ width: 32 }} />
           </tr>
         </thead>
@@ -263,7 +318,36 @@ function DatabaseWidget({ statusFilter, setStatusFilter }) {
         </Suspense>
       )}
       {profileId && <ChurchProfileModal churchId={profileId} onClose={() => setProfileId(null)} />}
-    </div>
+      </div>
+    </>
+  );
+}
+
+function RelationshipSignals() {
+  const signals = getRelationshipSignals(db, TODAY);
+  if (!db.churches.length) return null;
+  return (
+    <section className="card attention-card" aria-labelledby="attention-title">
+      <div className="card-header">
+        <div>
+          <div className="card-title" id="attention-title">Needs attention</div>
+          <div className="attention-subtitle">Every suggestion shows the reason it appears.</div>
+        </div>
+        <Badge label={`${signals.length} items`} variant={signals.some(item => item.level === 'urgent') ? 'red' : 'amber'} />
+      </div>
+      {signals.length === 0 ? (
+        <div className="attention-empty">You’re caught up. No relationships match the current attention rules.</div>
+      ) : (
+        <div className="attention-list">
+          {signals.map(signal => (
+            <div className="attention-row" key={signal.id}>
+              <span className={`attention-dot ${signal.level}`} />
+              <div><strong>{signal.churchName}</strong><span>{signal.title}</span><small>{signal.reason}</small></div>
+            </div>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -424,6 +508,8 @@ export default function Dashboard() {
 
   return (
     <div>
+      <Header title="Today" subtitle="Your church relationships and next steps" />
+      <RelationshipSignals />
       <div className="overview-topbar">
         <button className="btn sm">
           <IconRefresh stroke={1.75} />

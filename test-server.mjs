@@ -1,4 +1,5 @@
 import { createApp } from './server/app.js';
+import { createAuthMiddleware } from './server/security.js';
 
 const writes = [];
 const database = {
@@ -41,8 +42,31 @@ try {
     body: JSON.stringify({ data: { id: 'different' } }),
   });
   check(response.status === 400, 'mismatched record IDs are rejected');
+
+  response = await fetch(`${base}/api/data/churches/ch_4`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ data: { id: 'ch_4', name: '' } }),
+  });
+  check(response.status === 400, 'required server-side fields are enforced');
+
+  response = await fetch(`${base}/api/data/churches/ch_5`, {
+    method: 'PUT', headers: { 'Content-Type': 'application/json' },
+    body: '{not-json',
+  });
+  check(response.status === 400, 'malformed JSON is rejected');
+
+  const protectedServer = createApp(database, {
+    auth: createAuthMiddleware({ AUTH_MODE: 'bearer', API_AUTH_TOKEN: 'a-secure-test-token-with-32-characters' }),
+  }).listen(0, '127.0.0.1');
+  await new Promise(resolve => protectedServer.once('listening', resolve));
+  const protectedBase = `http://127.0.0.1:${protectedServer.address().port}`;
+  response = await fetch(`${protectedBase}/api/data`);
+  check(response.status === 401, 'protected API rejects anonymous requests');
+  response = await fetch(`${protectedBase}/api/data`, { headers: { Authorization: 'Bearer a-secure-test-token-with-32-characters' } });
+  check(response.status === 200, 'protected API accepts a valid bearer token');
+  await new Promise(resolve => protectedServer.close(resolve));
 } finally {
   await new Promise(resolve => server.close(resolve));
 }
 
-process.exit(failures ? 1 : 0);
+process.exitCode = failures ? 1 : 0;

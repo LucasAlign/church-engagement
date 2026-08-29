@@ -2,13 +2,13 @@ import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   IconMapPin, IconUsers, IconCalendar, IconUserCircle, IconMail, IconPhone,
-  IconPlus, IconPencil, IconPinned, IconLock, IconArchive, IconBuildingChurch, IconX, IconAlertCircle, IconLoader,
+  IconPlus, IconPencil, IconPinned, IconArchive, IconBuildingChurch, IconX, IconAlertCircle,
 } from '@tabler/icons-react';
 import {
   getChurchById, getContactsByChurch, getInteractionsByChurch, getTasksByChurch,
   getNotesByChurch, getMinistryByChurch, getChurchGivingSummary, getUserById,
   getContactById, isTaskOverdue, addNote, toggleTaskCompleted,
-  getCongregantsByChurch, addCongregant, updateCongregantContact,
+  getCongregantsByChurch, updateCongregantContact,
   getLastContactForContact, contactStatus,
   getAdvocatesByChurch, addAdvocate, addMinistryEngagement, addTask,
   genId,
@@ -51,18 +51,16 @@ function StaffForm({ contact, churchId, onSave, onCancel }) {
 
     setLoading(true);
     try {
-      if (!formData.id) {
-        formData.id = genId('ct');
-      }
-      const existing = db.contacts.findIndex(c => c.id === formData.id);
+      const record = formData.id ? { ...formData } : { ...formData, id: genId('ct') };
+      const existing = db.contacts.findIndex(c => c.id === record.id);
       if (existing >= 0) {
-        db.contacts[existing] = formData;
+        db.contacts[existing] = record;
       } else {
-        db.contacts.push(formData);
+        db.contacts.push(record);
       }
-      saveRecord('contacts', formData);
+      saveRecord('contacts', record);
       onSave();
-    } catch (err) {
+    } catch {
       setErrorMessage('Failed to save staff member. Please try again.');
     } finally {
       setLoading(false);
@@ -120,21 +118,21 @@ function CongregantForm({ congregant, churchId, onSave, onCancel }) {
 
     setLoading(true);
     try {
+      const record = formData.id ? { ...formData } : { ...formData, id: genId('cg') };
       if (formData.id) {
-        const existing = db.notableCongregants.findIndex(c => c.id === formData.id);
+        const existing = db.notableCongregants.findIndex(c => c.id === record.id);
         if (existing >= 0) {
-          db.notableCongregants[existing] = formData;
-          saveRecord('notableCongregants', formData);
+          db.notableCongregants[existing] = record;
+          saveRecord('notableCongregants', record);
         }
       } else {
-        formData.id = genId('cg');
-        db.notableCongregants.push(formData);
-        saveRecord('notableCongregants', formData);
+        db.notableCongregants.push(record);
+        saveRecord('notableCongregants', record);
       }
 
       onSave();
       refresh();
-    } catch (err) {
+    } catch {
       setErrorMessage('Failed to save congregant. Please try again.');
     } finally {
       setLoading(false);
@@ -180,14 +178,26 @@ function OverviewTab({ church }) {
   const giving = getChurchGivingSummary(church.id);
   const interactions = getInteractionsByChurch(church.id);
   const ministries = getMinistryByChurch(church.id).filter(m => m.status === 'active');
+  const address = church.address
+    ? [church.address, church.city, church.state, church.zip].filter(Boolean).join(', ').replace(/, ([^,]+), ([^,]+)$/, ', $1 $2')
+    : 'Address not added';
+  const attendanceMin = Number(church.attendanceMin) || 0;
+  const attendanceMax = Number(church.attendanceMax) || 0;
+  const attendance = attendanceMin && attendanceMax
+    ? `${attendanceMin}–${attendanceMax}`
+    : attendanceMin
+      ? `${attendanceMin}+`
+      : attendanceMax
+        ? `Up to ${attendanceMax}`
+        : 'Attendance unknown';
   const rows = [
-    ['Address', `${church.address}, ${church.city}, ${church.state} ${church.zip}`],
+    ['Address', address],
     ['Phone', church.phone || '—'],
     ['Email', church.email || '—'],
     ['Website', church.website || '—'],
-    ['Denomination', church.denomination],
-    ['Attendance', `${church.attendanceMin}–${church.attendanceMax}`],
-    ['County', church.county],
+    ['Denomination', church.denomination || 'Not provided'],
+    ['Attendance', attendance],
+    ['County', church.county || 'Not provided'],
     ['Last interaction', fmtDate(church.lastInteractionDate)],
   ];
   return (
@@ -751,6 +761,14 @@ export default function ChurchProfile({ churchId }) {
   const givingStatus = GIVING_STATUS[giving.givingStatus];
   const coordinator = church.assignedCoordinatorId ? getUserById(church.assignedCoordinatorId) : null;
   const activeMinistries = getMinistryByChurch(church.id).filter(m => m.status === 'active').length;
+  const primaryContact = getContactsByChurch(church.id)[0] || null;
+  const latestInteraction = getInteractionsByChurch(church.id)[0] || null;
+  const nextTask = getTasksByChurch(church.id)
+    .filter(task => task.status !== 'completed')
+    .sort((a, b) => (a.dueDate || '9999-12-31').localeCompare(b.dueDate || '9999-12-31'))[0] || null;
+  const attendance = Number(church.attendanceMin) || Number(church.attendanceMax)
+    ? `${Number(church.attendanceMin) || '?'}–${Number(church.attendanceMax) || '?'} attendance`
+    : 'Attendance unknown';
 
   return (
     <>
@@ -770,7 +788,7 @@ export default function ChurchProfile({ churchId }) {
           </div>
           <div className="ph-meta">
             <span><IconMapPin stroke={1.75} /> {church.city}, {church.state}</span>
-            <span><IconUsers stroke={1.75} /> {church.attendanceMin}–{church.attendanceMax} attendance</span>
+            <span><IconUsers stroke={1.75} /> {attendance}</span>
             <span><IconCalendar stroke={1.75} /> Last interaction {fmtDate(church.lastInteractionDate)}</span>
             <span><IconUserCircle stroke={1.75} /> {coordinator ? coordinator.name : 'No advocate'}</span>
           </div>
@@ -779,6 +797,12 @@ export default function ChurchProfile({ churchId }) {
           <button className="btn" onClick={() => setEditing(true)}><IconPencil stroke={1.75} /> Edit</button>
         </div>
       </div>
+      <section className="profile-essentials" aria-label="Relationship summary">
+        <div><small>Primary contact</small><strong>{primaryContact?.name || 'No primary contact added'}</strong><span>{primaryContact?.title || 'Add a contact in Staff'}</span></div>
+        <div><small>Latest interaction</small><strong>{latestInteraction ? fmtDate(latestInteraction.date) : 'No contact recorded'}</strong><span>{latestInteraction?.notes || 'Log the first conversation'}</span></div>
+        <div><small>Next action</small><strong>{nextTask?.title || 'No follow-up scheduled'}</strong><span>{nextTask?.dueDate ? `Due ${fmtDate(nextTask.dueDate)}` : 'Create a task to make the next step clear'}</span></div>
+        <button className="btn primary" type="button" onClick={() => setLogging(true)}><IconPlus stroke={1.75} /> Log interaction</button>
+      </section>
       <div className="tab-nav">
         {TABS.map(t => (
           <button key={t} className={`tab-btn ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>{t}</button>

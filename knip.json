@@ -1,0 +1,7 @@
+{
+  "ignore": ["verify-ui*.mjs"],
+  "ignoreDependencies": ["puppeteer"],
+  "rules": {
+    "exports": "off"
+  }
+}

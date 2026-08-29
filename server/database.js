@@ -7,9 +7,14 @@ export const COLLECTIONS = new Set([
   'impactReports', 'churchNotes', 'notableCongregants', 'users',
 ]);
 
-export function createDatabase(connectionString = process.env.DATABASE_URL) {
+export function createDatabase(connectionString = process.env.DATABASE_URL, env = process.env) {
   if (!connectionString) throw new Error('DATABASE_URL is required');
-  const pool = new Pool({ connectionString, ssl: connectionString.includes('localhost') ? false : { rejectUnauthorized: false } });
+  const isLocal = /(?:localhost|127\.0\.0\.1)/.test(connectionString);
+  const allowInvalidCertificate = env.DATABASE_SSL_ALLOW_INVALID_CERT === 'true';
+  const pool = new Pool({
+    connectionString,
+    ssl: isLocal ? false : { rejectUnauthorized: !allowInvalidCertificate },
+  });
 
   return {
     async initialize() {

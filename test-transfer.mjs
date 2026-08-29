@@ -109,4 +109,14 @@ check(groups3[0]?.entity?.key === 'advocates', `CSV matched to Advocates by head
 check(groups3[0]?.items[0]?.action === 'new', 'CSV advocate row is new');
 check(groups3[0]?.items[0]?.record.trainedDate === '2026-01-05', `date parsed (got ${groups3[0]?.items[0]?.record.trainedDate})`);
 
-process.exit(failures ? 1 : 0);
+// 5. Similar church names are held for review instead of being selected automatically.
+const duplicateWb = XLSX.utils.book_new();
+XLSX.utils.book_append_sheet(duplicateWb, XLSX.utils.json_to_sheet([
+  { Name: 'Covenant', City: 'Reading', State: 'PA' },
+]), 'Churches');
+const duplicateGroups = await parseImportFile(fakeFile(duplicateWb));
+const duplicate = duplicateGroups[0]?.items[0];
+check(duplicate?.action === 'review', `similar church is flagged for review (got ${duplicate?.action})`);
+check(duplicate?.reason.includes('Covenant Church'), `duplicate evidence names the existing church (${duplicate?.reason})`);
+
+process.exitCode = failures ? 1 : 0;

@@ -14,9 +14,16 @@ import {
   ADVOCATE_STATUS, CONNECTION_TYPE, CONNECTION_STATUS,
 } from './labels.js';
 
+export const IMPORT_LIMITS = Object.freeze({ maxBytes: 10 * 1024 * 1024, maxSheets: 25, maxRowsPerSheet: 20_000 });
+
 // ---- value formatting / parsing ----
 
 const norm = v => String(v ?? '').trim().toLowerCase();
+const normChurchName = value => norm(value)
+  .replace(/[^a-z0-9\s]/g, ' ')
+  .split(/\s+/)
+  .filter(token => token && !['church', 'ministry', 'ministries', 'the'].includes(token))
+  .join(' ');
 
 function enumLabel(map, key) {
   const entry = map[key];
@@ -322,14 +329,33 @@ function buildEntityPlan(ent, rows, pendingChurchNames) {
     if (!record[ent.matchOn || ent.fields[0].key]) {
       return { idx, label, action: 'error', reason: 'Missing required name field' };
     }
+    if (ent.key === 'churches') {
+      const possibleDuplicate = db.churches.find(church =>
+        normChurchName(church.name) && normChurchName(church.name) === normChurchName(record.name));
+      if (possibleDuplicate) {
+        return {
+          idx,
+          label,
+          action: 'review',
+          record,
+          possibleDuplicate,
+          reason: `Possible duplicate of ${possibleDuplicate.name} (similar name)`,
+        };
+      }
+    }
     return { idx, label, action: 'new', record, ...churchRef };
   });
   return { entity: ent, items };
 }
 
 export async function parseImportFile(file) {
+  if (Number(file.size || 0) > IMPORT_LIMITS.maxBytes) {
+    throw new Error('Import file is larger than 10 MB');
+  }
   const data = await file.arrayBuffer();
+  if (data.byteLength > IMPORT_LIMITS.maxBytes) throw new Error('Import file is larger than 10 MB');
   const wb = XLSX.read(data, { type: 'array', cellDates: true });
+  if (wb.SheetNames.length > IMPORT_LIMITS.maxSheets) throw new Error('Import has too many sheets');
   const groups = [];
 
   // Build the working list of { name, rows }. A human tracking sheet is
@@ -339,6 +365,7 @@ export async function parseImportFile(file) {
   const sheets = [];
   for (const sheetName of wb.SheetNames) {
     const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: '' });
+    if (rows.length > IMPORT_LIMITS.maxRowsPerSheet) throw new Error(`${sheetName} has too many rows`);
     if (!rows.length) continue;
     const trackerMap = detectTracker(Object.keys(rows[0]));
     if (trackerMap) {
@@ -396,7 +423,7 @@ export function applyImport(groups, selected) {
         if (ent.key === 'churches') item.existing.updatedAt = TODAY;
         saveRecord(ent.collection, item.existing);
         updated += 1;
-      } else if (item.action === 'new') {
+      } else if (item.action === 'new' || item.action === 'review') {
         const rec = { id: genId(ent.idPrefix), ...(ent.defaults?.() || {}), ...item.record };
         if (ent.churchScoped) {
           rec.churchId = item.churchId

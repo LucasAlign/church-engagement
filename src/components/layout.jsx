@@ -115,7 +115,7 @@ function TopNav() {
         </nav>
       </div>
       <div className="top-nav-right">
-        <button className="icon-btn">
+        <button className="icon-btn" type="button" aria-label="Notifications">
           <IconBell stroke={1.75} />
         </button>
         <AvatarMenu me={me} />
