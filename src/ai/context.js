@@ -68,7 +68,7 @@ export function todayTasks() {
     })
     .sort((a, b) =>
       (b.overdue - a.overdue) ||
-      a.dueDate.localeCompare(b.dueDate) ||
+      (a.dueDate || '9999-12-31').localeCompare(b.dueDate || '9999-12-31') ||
       a.church.localeCompare(b.church));
 }
 
@@ -84,7 +84,7 @@ export function primaryContact(churchId) {
 
 // Whole-portfolio read for coaching (Opus). Surfaces where momentum is slipping,
 // giving is softening, and work is piling up — the raw material for a play.
-const PARTNER_TIERS = ['active_partner', 'strategic_partner'];
+const PARTNER_TIERS = ['partnering', 'active_partner', 'strategic_partner'];
 
 export function portfolioContext() {
   const me = getUserById('usr_001');

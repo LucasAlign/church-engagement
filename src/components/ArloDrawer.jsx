@@ -42,10 +42,10 @@ export default function ArloDrawer() {
   const [entries, setEntries] = useState([]);
   const [busy, setBusy] = useState(false);
   const [panel, setPanel] = useState(null); // 'summarize' | 'capture' | null
-  const [summChurchId, setSummChurchId] = useState(db.churches[0].id);
-  const [draftChurchId, setDraftChurchId] = useState(db.churches[0].id);
+  const [summChurchId, setSummChurchId] = useState(db.churches[0]?.id || '');
+  const [draftChurchId, setDraftChurchId] = useState(db.churches[0]?.id || '');
   const [note, setNote] = useState('');
-  const [captureChurchId, setCaptureChurchId] = useState(db.churches[0].id);
+  const [captureChurchId, setCaptureChurchId] = useState(db.churches[0]?.id || '');
   const [draft, setDraft] = useState(null);
   const [ask, setAsk] = useState('');
   const scrollRef = useRef(null);
@@ -246,13 +246,13 @@ export default function ArloDrawer() {
             <button className="arlo-chip" onClick={onBrief} disabled={busy}>
               <IconCalendarTime stroke={1.75} /> Today's brief
             </button>
-            <button className="arlo-chip" onClick={() => { setDraft(null); setPanel('summarize'); }} disabled={busy}>
+            <button className="arlo-chip" onClick={() => { setDraft(null); setPanel('summarize'); }} disabled={busy || !db.churches.length}>
               <IconBuildingChurch stroke={1.75} /> Summarize a church
             </button>
-            <button className="arlo-chip" onClick={() => { setDraft(null); setPanel('draft'); }} disabled={busy}>
+            <button className="arlo-chip" onClick={() => { setDraft(null); setPanel('draft'); }} disabled={busy || !db.churches.length}>
               <IconMailForward stroke={1.75} /> Draft follow-up
             </button>
-            <button className="arlo-chip" onClick={() => { setDraft(null); setPanel('capture'); }} disabled={busy}>
+            <button className="arlo-chip" onClick={() => { setDraft(null); setPanel('capture'); }} disabled={busy || !db.churches.length}>
               <IconClipboardText stroke={1.75} /> Capture interaction
             </button>
           </div>

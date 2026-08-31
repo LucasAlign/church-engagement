@@ -1,40 +1,91 @@
-# KeyFam1 — Church Engagement Dashboard
+# Flock — Church Engagement CRM
 
-Ministry CRM module for Keystone Family Alliance county coordinators. Frontend
-prototype with an in-memory mock database designed for drop-in replacement
-with Supabase/Postgres.
+React/Vite frontend with an Express API and Replit-managed PostgreSQL backend.
+The browser keeps a synchronous in-memory cache for fast UI updates; every
+mutation writes through to the API and failed saves appear in the UI with a
+Retry action.
 
-## Run it
+## Local frontend demo
 
 ```sh
 npm install
 npm run dev
 ```
 
+Demo mode does not persist changes. To exercise the full stack locally, create
+a PostgreSQL database, copy `.env.example` to `.env.local`, and run:
+
+```sh
+npm run dev:full
+```
+
+## Replit setup
+
+1. Import this GitHub repository into Replit.
+2. Add a PostgreSQL database from the Database tool. Replit supplies
+   `DATABASE_URL` to the development and production environments.
+3. Run `npm run dev:full` during development.
+4. Publish as an Autoscale deployment with:
+   - Build command: `npm run build`
+   - Run command: `npm start`
+5. In Replit Agent, request: `Add Replit Auth and protect every /api route.`
+   Replit Auth is provisioned by Agent and cannot be configured manually.
+
+The server creates the `records` table and index automatically. Each record is
+stored as JSONB under a `(collection, id)` primary key, preserving the existing
+frontend data model.
+
+## Commands
+
+```sh
+npm run dev          # frontend demo
+npm run dev:server   # API only (requires DATABASE_URL)
+npm run dev:full     # frontend + API
+npm run check        # regression tests + production build
+npm run test:e2e     # desktop/mobile browser and accessibility tests
+npm run deadcode     # unused files, exports, and dependencies
+npm run analyze      # build and write dist/bundle-report.html
+npm run security:audit # production dependency advisory scan
+npm start            # serve API and built frontend
+```
+
+To remove every persisted application record while preserving the schema:
+
+```sh
+CONFIRM_WIPE=WIPE_FLOCK_DATA npm run db:wipe
+```
+
+Run that command once in the Replit Shell before importing replacement data.
+The bundled `berks-county-churches.csv` import source is not deleted.
+
 ## Structure
 
-```
+```text
+server/
+  index.js       Express entry point and static production hosting
+  database.js    PostgreSQL repository and schema initialization
 src/
   data/
-    db.js          mock in-memory database (1:1 with future Postgres tables)
-    helpers.js     derived values — replace with Supabase queries/views later
-    labels.js      enum → display label/badge-variant maps, formatters
-    store.jsx      change-notification layer over the mock db
-  components/
-    layout.jsx     AppShell, Sidebar, Header
-    shared.jsx     Badge, MetricCard, DataTable bits, SearchBar, FilterPills,
-                   CSSBarChart, AvatarInitials, EmptyState, Modal
-    LogInteractionModal.jsx
-  pages/           Dashboard, Churches, ChurchProfile (7 tabs), Interactions,
-                   FollowUps, Giving, ImpactReports, Analytics, Settings
-  styles.css       KeyFam1 design system (matches Wraparound Admin module)
+    db.js        in-memory client cache
+    backend.js   API hydration and write-through persistence
+    helpers.js   queries and mutations
+  components/    shared UI and forms
+  pages/         dashboard, profiles, analytics, settings
 ```
 
-## Notes
+## Security
 
-- All dates are pinned to `2026-06-09` (`TODAY` in `helpers.js`) so the
-  prototype renders deterministically.
-- Log Interaction, Add Note, and task checkboxes mutate the in-memory db and
-  re-render live; state resets on page reload.
-- See the master build prompt for the Supabase replacement guide
-  (camelCase → snake_case happens in a single transform layer).
+Production refuses to start without an explicit authentication mode:
+
+- `AUTH_MODE=proxy` trusts the user identity header supplied by a trusted,
+  correctly configured authentication proxy. Set `AUTH_USER_HEADER` if the
+  proxy does not use `x-authenticated-user-id`. Never expose the app server
+  directly in this mode.
+- `AUTH_MODE=bearer` requires `API_AUTH_TOKEN` (at least 32 characters) and is
+  intended for machine-to-machine access.
+- `AUTH_MODE=none` is restricted to local development.
+
+Every API request is rate limited and validated server-side. Never expose
+`DATABASE_URL` or connect to PostgreSQL directly from browser code. Remote
+database certificates are verified unless `DATABASE_SSL_ALLOW_INVALID_CERT`
+is deliberately enabled for a provider that cannot supply a valid chain.

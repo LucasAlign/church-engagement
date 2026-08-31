@@ -1,7 +1,22 @@
 // Shared building blocks: Badge, MetricCard, AvatarInitials, SearchBar,
 // FilterPills, CSSBarChart, EmptyState, Modal.
 import { IconSearch, IconX } from '@tabler/icons-react';
+import { useEffect, useId } from 'react';
 import { initialsOf } from '../data/labels.js';
+
+// Green dot = contacted within 90 days, red = overdue or never
+export function ContactDot({ status, date }) {
+  const label = date
+    ? `Last contact: ${date}${status === 'red' ? ' (overdue)' : ''}`
+    : 'Never contacted';
+  return (
+    <span
+      className={`contact-dot contact-dot-${status}`}
+      title={label}
+      aria-label={label}
+    />
+  );
+}
 
 export function Badge({ label, variant = 'gray' }) {
   return <span className={`badge ${variant}`}>{label}</span>;
@@ -56,6 +71,15 @@ export function FilterPills({ options, active, onChange }) {
 }
 
 export function CSSBarChart({ data, color = 'blue', format = v => v }) {
+  if (!data || data.length === 0) {
+    return (
+      <div className="bar-chart">
+        <div style={{ padding: '20px', textAlign: 'center', color: '#999' }}>
+          No data available
+        </div>
+      </div>
+    );
+  }
   const max = Math.max(...data.map(d => d.value), 1);
   return (
     <div className="bar-chart">
@@ -85,12 +109,18 @@ export function EmptyState({ icon: Icon, title, sub }) {
   );
 }
 
-export function Modal({ title, onClose, footer, children }) {
+export function Modal({ title, onClose, footer, children, wide }) {
+  const titleId = useId();
+  useEffect(() => {
+    const onKeyDown = event => { if (event.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [onClose]);
   return (
     <div className="modal-overlay" onMouseDown={e => e.target === e.currentTarget && onClose()}>
-      <div className="modal">
+      <div className={`modal ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-labelledby={titleId}>
         <div className="modal-header">
-          <div className="modal-title">{title}</div>
+          <div className="modal-title" id={titleId}>{title}</div>
           <button className="icon-btn" onClick={onClose} aria-label="Close">
             <IconX />
           </button>

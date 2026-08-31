@@ -1,9 +1,25 @@
-import { getUserById } from '../data/helpers.js';
+import { useState } from 'react';
+import { getUserById, updateUser } from '../data/helpers.js';
 import { Header } from '../components/layout.jsx';
 import { AvatarInitials } from '../components/shared.jsx';
+import { initialsOf } from '../data/labels.js';
+import { useDb } from '../data/store.jsx';
 
 export default function Settings() {
+  const { refresh } = useDb();
   const me = getUserById('usr_001');
+  const [name, setName] = useState(me.name);
+  const [email, setEmail] = useState(me.email);
+  const [saved, setSaved] = useState(false);
+
+  const save = () => {
+    if (!name.trim() || !email.trim()) return;
+    updateUser(me.id, { name: name.trim(), email: email.trim(), initials: initialsOf(name.trim()) });
+    refresh();
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
   return (
     <>
       <Header title="Settings" subtitle="Profile and module preferences" />
@@ -19,13 +35,16 @@ export default function Settings() {
           </div>
           <div className="field">
             <label className="field-label">Name</label>
-            <input className="select" defaultValue={me.name} />
+            <input className="select" value={name} onChange={e => setName(e.target.value)} />
           </div>
           <div className="field">
             <label className="field-label">Email</label>
-            <input className="select" defaultValue={me.email} />
+            <input className="select" value={email} onChange={e => setEmail(e.target.value)} />
           </div>
-          <button className="btn primary">Save changes</button>
+          <div style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+            <button className="btn primary" onClick={save}>Save changes</button>
+            {saved && <span className="text-secondary" style={{ fontSize: 13 }}>Saved ✓</span>}
+          </div>
         </div>
         <div className="card card-pad">
           <h3 className="section-title">Notifications</h3>
