@@ -2,8 +2,8 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import {
   IconMapPin, IconUsers, IconCalendar, IconUserCircle, IconMail, IconPhone,
-  IconPlus, IconPencil, IconPinned, IconLock, IconArchive, IconBuildingChurch,
-  IconSparkles, IconX, IconAlertCircle,
+  IconPlus, IconPencil, IconTrash, IconPinned, IconBuildingChurch, IconX, IconAlertCircle,
+  IconHeartHandshake, IconSparkles,
 } from '@tabler/icons-react';
 import { summarizeChurch } from '../ai/arlo.js';
 import {
@@ -12,13 +12,13 @@ import {
   getContactById, isTaskOverdue, addNote, toggleTaskCompleted,
   getCongregantsByChurch, updateCongregantContact,
   getLastContactForContact, contactStatus,
-  getAdvocatesByChurch, addAdvocate, addMinistryEngagement, addTask,
-  genId,
+  getAdvocatesByChurch, addAdvocate, updateAdvocate, addMinistryEngagement, updateMinistryEngagement, addTask, updateTask, removeProfileRecord,
+  getCareCommunitiesByChurch, addCareCommunity, updateCareCommunity,
 } from '../data/helpers.js';
 import {
   ENGAGEMENT_STATUS, GIVING_STATUS, INTERACTION_TYPE, MINISTRY_TYPE,
   MINISTRY_STATUS, TASK_PRIORITY, TASK_STATUS, KFA_ROLE, PREFERRED_CONTACT,
-  CONGREGANT_CATEGORY, ADVOCATE_ROLE, ADVOCATE_STATUS, fmtDate, fmtMoney,
+  CONGREGANT_CATEGORY, ADVOCATE_ROLE, ADVOCATE_STATUS, CARE_COMMUNITY_STATUS, fmtDate, fmtMoney,
 } from '../data/labels.js';
 import { Badge, MetricCard, AvatarInitials, EmptyState, ContactDot } from '../components/shared.jsx';
 import LogInteractionModal from '../components/LogInteractionModal.jsx';
@@ -29,7 +29,17 @@ import db from '../data/db.js';
 import { saveRecord } from '../data/backend.js';
 import { validateContact, validateCongregant } from '../data/validation.js';
 
-const TABS = ['Overview', 'Advocate', 'Staff', 'Notable Congregants', 'Interactions', 'Ministry', 'Notes', 'Tasks'];
+const TABS = ['Overview', 'Advocate', 'Care Communities', 'Staff', 'Notable Congregants', 'Interactions', 'Ministry', 'Notes', 'Tasks'];
+
+function ArloSummary({ churchId }) {
+  const [text, setText] = useState('');
+  useEffect(() => {
+    let live = true;
+    summarizeChurch({ churchId }).then(result => { if (live) setText(result.text); });
+    return () => { live = false; };
+  }, [churchId]);
+  return <div className="arlo-summary"><IconSparkles stroke={1.75} /><span>{text || 'Karen is reading this church…'}</span></div>;
+}
 
 function StaffForm({ contact, churchId, onSave, onCancel }) {
   const [formData, setFormData] = useState(contact || { churchId });
@@ -53,7 +63,7 @@ function StaffForm({ contact, churchId, onSave, onCancel }) {
 
     setLoading(true);
     try {
-      const record = formData.id ? { ...formData } : { ...formData, id: genId('ct') };
+      const record = formData.id ? formData : { ...formData, id: `ct_${Date.now()}` };
       const existing = db.contacts.findIndex(c => c.id === record.id);
       if (existing >= 0) {
         db.contacts[existing] = record;
@@ -120,14 +130,14 @@ function CongregantForm({ congregant, churchId, onSave, onCancel }) {
 
     setLoading(true);
     try {
-      const record = formData.id ? { ...formData } : { ...formData, id: genId('cg') };
       if (formData.id) {
-        const existing = db.notableCongregants.findIndex(c => c.id === record.id);
+        const existing = db.notableCongregants.findIndex(c => c.id === formData.id);
         if (existing >= 0) {
-          db.notableCongregants[existing] = record;
-          saveRecord('notableCongregants', record);
+          db.notableCongregants[existing] = formData;
+          saveRecord('notableCongregants', formData);
         }
       } else {
+        const record = { ...formData, id: `cg_${Date.now()}` };
         db.notableCongregants.push(record);
         saveRecord('notableCongregants', record);
       }
@@ -176,47 +186,18 @@ function CongregantForm({ congregant, churchId, onSave, onCancel }) {
   );
 }
 
-// One-line status read from Karen (Haiku), refreshed when the church changes.
-function ArloSummary({ churchId }) {
-  const [text, setText] = useState('');
-  useEffect(() => {
-    let live = true;
-    setText('');
-    summarizeChurch({ churchId }).then(r => { if (live) setText(r.text); });
-    return () => { live = false; };
-  }, [churchId]);
-  return (
-    <div className="arlo-summary">
-      <IconSparkles stroke={1.75} />
-      <span>{text || 'Karen is reading this church…'}</span>
-    </div>
-  );
-}
-
 function OverviewTab({ church }) {
   const giving = getChurchGivingSummary(church.id);
   const interactions = getInteractionsByChurch(church.id);
   const ministries = getMinistryByChurch(church.id).filter(m => m.status === 'active');
-  const address = church.address
-    ? [church.address, church.city, church.state, church.zip].filter(Boolean).join(', ').replace(/, ([^,]+), ([^,]+)$/, ', $1 $2')
-    : 'Address not added';
-  const attendanceMin = Number(church.attendanceMin) || 0;
-  const attendanceMax = Number(church.attendanceMax) || 0;
-  const attendance = attendanceMin && attendanceMax
-    ? `${attendanceMin}–${attendanceMax}`
-    : attendanceMin
-      ? `${attendanceMin}+`
-      : attendanceMax
-        ? `Up to ${attendanceMax}`
-        : 'Attendance unknown';
   const rows = [
-    ['Address', address],
+    ['Address', `${church.address}, ${church.city}, ${church.state} ${church.zip}`],
     ['Phone', church.phone || '—'],
     ['Email', church.email || '—'],
     ['Website', church.website || '—'],
-    ['Denomination', church.denomination || 'Not provided'],
-    ['Attendance', attendance],
-    ['County', church.county || 'Not provided'],
+    ['Denomination', church.denomination],
+    ['Attendance', `${church.attendanceMin}–${church.attendanceMax}`],
+    ['County', church.county],
     ['Last interaction', fmtDate(church.lastInteractionDate)],
   ];
   return (
@@ -247,6 +228,7 @@ function AdvocateTab({ church }) {
   const { refresh } = useDb();
   const [roleFilter, setRoleFilter] = useState('all');
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ name: '', email: '', phone: '', role: 'care_communities', notes: '' });
   const advocates = getAdvocatesByChurch(church.id);
   const filtered = roleFilter === 'all' ? advocates : advocates.filter(a => a.role === roleFilter);
@@ -254,15 +236,10 @@ function AdvocateTab({ church }) {
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const save = () => {
     if (!form.name.trim()) return;
-    addAdvocate({
-      churchId: church.id,
-      name: form.name.trim(),
-      email: form.email.trim() || null,
-      phone: form.phone.trim() || null,
-      role: form.role,
-      notes: form.notes.trim() || null,
-    });
+    const fields = { churchId: church.id, name: form.name.trim(), email: form.email.trim() || null, phone: form.phone.trim() || null, role: form.role, notes: form.notes.trim() || null };
+    if (editingId) updateAdvocate(editingId, fields); else addAdvocate(fields);
     setForm({ name: '', email: '', phone: '', role: 'care_communities', notes: '' });
+    setEditingId(null);
     setIsAdding(false);
     refresh();
   };
@@ -279,7 +256,7 @@ function AdvocateTab({ church }) {
             ))}
           </select>
         </div>
-        <button className="btn primary" onClick={() => setIsAdding(a => !a)}><IconPlus stroke={2} /> Add advocate</button>
+        <button className="btn primary" onClick={() => { setEditingId(null); setForm({ name: '', email: '', phone: '', role: 'care_communities', notes: '' }); setIsAdding(a => !a); }}><IconPlus stroke={2} /> Add advocate</button>
       </div>
 
       {isAdding && (
@@ -312,7 +289,7 @@ function AdvocateTab({ church }) {
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button className="btn" onClick={() => setIsAdding(false)}>Cancel</button>
-            <button className="btn primary" onClick={save}>Save advocate</button>
+            <button className="btn primary" onClick={save}>{editingId ? 'Update advocate' : 'Save advocate'}</button>
           </div>
         </div>
       )}
@@ -341,6 +318,148 @@ function AdvocateTab({ church }) {
                 {a.email && <span><IconMail stroke={1.75} /> {a.email}</span>}
                 {a.phone && <span><IconPhone stroke={1.75} /> {a.phone}</span>}
                 {a.notes && <span className="text-secondary">{a.notes}</span>}
+              </div>
+              <div className="pc-actions">
+                <button className="btn sm" onClick={() => { setEditingId(a.id); setForm({ name: a.name || '', email: a.email || '', phone: a.phone || '', role: a.role || 'care_communities', notes: a.notes || '' }); setIsAdding(true); }}><IconPencil /> Edit</button>
+                <button className="btn sm danger" onClick={() => { removeProfileRecord('advocates', a.id); refresh(); }}><IconTrash /> Remove</button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </>
+  );
+}
+
+// Team members round-trip as "Name (Role); Name (Role)", matching the importer.
+const fmtMembers = members => (members || []).map(m => (m.role ? `${m.name} (${m.role})` : m.name)).join('; ');
+const parseMembers = value => String(value ?? '').split(';').map(s => s.trim()).filter(Boolean).map(s => {
+  const match = s.match(/^(.*?)\s*\(([^)]*)\)$/);
+  return match ? { name: match[1], role: match[2] } : { name: s, role: '' };
+});
+
+const EMPTY_CC = { name: '', status: 'forming', lead: '', familyServed: '', startDate: '', members: '', notes: '' };
+
+function CareCommunityTab({ church }) {
+  const { refresh } = useDb();
+  const [statusFilter, setStatusFilter] = useState('all');
+  const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const [form, setForm] = useState(EMPTY_CC);
+  const communities = getCareCommunitiesByChurch(church.id);
+  const filtered = statusFilter === 'all' ? communities : communities.filter(c => c.status === statusFilter);
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const save = () => {
+    if (!form.name.trim()) return;
+    const fields = {
+      churchId: church.id, name: form.name.trim(), status: form.status,
+      lead: form.lead.trim() || null, familyServed: form.familyServed.trim() || null,
+      startDate: form.startDate || null, members: parseMembers(form.members),
+      notes: form.notes.trim() || null,
+    };
+    if (editingId) updateCareCommunity(editingId, fields); else addCareCommunity(fields);
+    setForm(EMPTY_CC);
+    setEditingId(null);
+    setIsAdding(false);
+    refresh();
+  };
+  const edit = c => {
+    setEditingId(c.id);
+    setForm({
+      name: c.name || '', status: c.status || 'forming', lead: c.lead || '',
+      familyServed: c.familyServed || '', startDate: c.startDate || '',
+      members: fmtMembers(c.members), notes: c.notes || '',
+    });
+    setIsAdding(true);
+  };
+
+  return (
+    <>
+      <div className="advocate-toolbar">
+        <div className="field" style={{ marginBottom: 0, minWidth: 200 }}>
+          <label className="field-label">Status</label>
+          <select className="select" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+            <option value="all">All</option>
+            {Object.entries(CARE_COMMUNITY_STATUS).map(([k, v]) => (
+              <option key={k} value={k}>{v.label}</option>
+            ))}
+          </select>
+        </div>
+        <button className="btn primary" onClick={() => { setEditingId(null); setForm(EMPTY_CC); setIsAdding(a => !a); }}><IconPlus stroke={2} /> Add care community</button>
+      </div>
+
+      {isAdding && (
+        <div className="card card-pad profile-form" style={{ marginBottom: 12 }}>
+          <div className="form-grid">
+            <div className="field">
+              <label className="field-label">Name</label>
+              <input className="select" value={form.name} onChange={e => set('name', e.target.value)} placeholder="e.g. The Snyder Family" />
+            </div>
+            <div className="field">
+              <label className="field-label">Status</label>
+              <select className="select" value={form.status} onChange={e => set('status', e.target.value)}>
+                {Object.entries(CARE_COMMUNITY_STATUS).map(([k, v]) => (
+                  <option key={k} value={k}>{v.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label className="field-label">Lead</label>
+              <input className="select" value={form.lead} onChange={e => set('lead', e.target.value)} placeholder="optional" />
+            </div>
+            <div className="field">
+              <label className="field-label">Family served</label>
+              <input className="select" value={form.familyServed} onChange={e => set('familyServed', e.target.value)} placeholder="optional" />
+            </div>
+            <div className="field">
+              <label className="field-label">Launch date</label>
+              <input type="date" className="select" value={form.startDate} onChange={e => set('startDate', e.target.value)} />
+            </div>
+          </div>
+          <div className="field">
+            <label className="field-label">Team members</label>
+            <input className="select" value={form.members} onChange={e => set('members', e.target.value)} placeholder="Jane Doe (Team Lead); John Smith (Advocate)" />
+          </div>
+          <div className="field">
+            <label className="field-label">Notes</label>
+            <textarea className="select" value={form.notes} onChange={e => set('notes', e.target.value)} placeholder="optional" />
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button className="btn" onClick={() => { setIsAdding(false); setEditingId(null); }}>Cancel</button>
+            <button className="btn primary" onClick={save}>{editingId ? 'Update care community' : 'Save care community'}</button>
+          </div>
+        </div>
+      )}
+
+      {filtered.length === 0 && !isAdding && (
+        <div className="card">
+          <EmptyState icon={IconHeartHandshake} title="No care communities yet" sub="Add the first care community for this church." />
+        </div>
+      )}
+
+      <div className="people-grid">
+        {filtered.map(c => {
+          const st = CARE_COMMUNITY_STATUS[c.status] || CARE_COMMUNITY_STATUS.forming;
+          return (
+            <div className="card person-card" key={c.id}>
+              <div className="pc-head">
+                <AvatarInitials name={c.name} size="md" />
+                <div style={{ flex: 1 }}>
+                  <div className="pc-name">{c.name}</div>
+                  <div className="pc-role"><Badge label={st.label} variant={st.variant} /></div>
+                </div>
+              </div>
+              <div className="pc-contact">
+                {c.lead && <span><IconUserCircle stroke={1.75} /> Lead: {c.lead}</span>}
+                {c.familyServed && c.familyServed !== c.name && <span><IconUsers stroke={1.75} /> Family: {c.familyServed}</span>}
+                {c.startDate && <span><IconCalendar stroke={1.75} /> Launched {fmtDate(c.startDate)}</span>}
+                {c.members && c.members.length > 0 && <span className="text-secondary">Team: {fmtMembers(c.members)}</span>}
+                {c.notes && <span className="text-secondary">{c.notes}</span>}
+              </div>
+              <div className="pc-actions">
+                <button className="btn sm" onClick={() => edit(c)}><IconPencil /> Edit</button>
+                <button className="btn sm danger" onClick={() => { removeProfileRecord('careCommunities', c.id); refresh(); }}><IconTrash /> Remove</button>
               </div>
             </div>
           );
@@ -406,7 +525,7 @@ function StaffTab({ church }) {
               </div>
               <div className="pc-actions">
                 <button className="btn sm" onClick={() => setEditingContact(p)}><IconPencil stroke={1.75} /> Edit</button>
-                <button className="btn sm"><IconArchive stroke={1.75} /> Archive</button>
+                <button className="btn sm danger" onClick={() => { removeProfileRecord('contacts', p.id); refresh(); }}><IconTrash stroke={1.75} /> Remove</button>
               </div>
             </div>
           );
@@ -481,6 +600,7 @@ function NotableCongregrantsTab({ church }) {
                   ✓ Log contact
                 </button>
                 <button className="btn sm" onClick={() => setEditingCongregant(c)}><IconPencil stroke={1.75} /> Edit</button>
+                <button className="btn sm danger" onClick={() => { removeProfileRecord('notableCongregants', c.id); refresh(); }}><IconTrash stroke={1.75} /> Remove</button>
               </div>
             </div>
           );
@@ -490,7 +610,8 @@ function NotableCongregrantsTab({ church }) {
   );
 }
 
-function TimelineTab({ church, onLog }) {
+function TimelineTab({ church, onLog, onEdit }) {
+  const { refresh } = useDb();
   const interactions = getInteractionsByChurch(church.id);
   return (
     <div className="card card-pad">
@@ -511,6 +632,10 @@ function TimelineTab({ church, onLog }) {
                 <span className="t-meta">· {fmtDate(item.date)} · {user?.name}</span>
               </div>
               <div className="timeline-notes">{item.notes}</div>
+              <div className="pc-actions">
+                <button className="btn sm" onClick={() => onEdit(item)}><IconPencil /> Edit</button>
+                <button className="btn sm danger" onClick={() => { removeProfileRecord('interactions', item.id); refresh(); }}><IconTrash /> Remove</button>
+              </div>
             </div>
           );
         })}
@@ -522,27 +647,23 @@ function TimelineTab({ church, onLog }) {
 function MinistryTab({ church }) {
   const { refresh } = useDb();
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ ministry: Object.keys(MINISTRY_TYPE)[0], status: 'exploring', startDate: '', notes: '' });
   const engagements = getMinistryByChurch(church.id);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const save = () => {
-    addMinistryEngagement({
-      churchId: church.id,
-      ministry: form.ministry,
-      status: form.status,
-      startDate: form.startDate || null,
-      notes: form.notes.trim() || null,
-    });
+    const fields = { churchId: church.id, ministry: form.ministry, status: form.status, startDate: form.startDate || null, notes: form.notes.trim() || null };
+    if (editingId) updateMinistryEngagement(editingId, fields); else addMinistryEngagement(fields);
     setForm({ ministry: Object.keys(MINISTRY_TYPE)[0], status: 'exploring', startDate: '', notes: '' });
-    setIsAdding(false);
+    setEditingId(null); setIsAdding(false);
     refresh();
   };
 
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button className="btn primary" onClick={() => setIsAdding(a => !a)}><IconPlus stroke={2} /> Add ministry</button>
+        <button className="btn primary" onClick={() => { setEditingId(null); setForm({ ministry: Object.keys(MINISTRY_TYPE)[0], status: 'exploring', startDate: '', notes: '' }); setIsAdding(a => !a); }}><IconPlus stroke={2} /> Add ministry</button>
       </div>
 
       {isAdding && (
@@ -575,7 +696,7 @@ function MinistryTab({ church }) {
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button className="btn" onClick={() => setIsAdding(false)}>Cancel</button>
-            <button className="btn primary" onClick={save}>Save ministry</button>
+            <button className="btn primary" onClick={save}>{editingId ? 'Update ministry' : 'Save ministry'}</button>
           </div>
         </div>
       )}
@@ -599,6 +720,10 @@ function MinistryTab({ church }) {
               {coordinator && <div>Coordinator: {coordinator.name}</div>}
               {m.notes && <div>{m.notes}</div>}
             </div>
+            <div className="pc-actions">
+              <button className="btn sm" onClick={() => { setEditingId(m.id); setForm({ ministry: m.ministry, status: m.status, startDate: m.startDate || '', notes: m.notes || '' }); setIsAdding(true); }}><IconPencil /> Edit</button>
+              <button className="btn sm danger" onClick={() => { removeProfileRecord('ministryEngagements', m.id); refresh(); }}><IconTrash /> Remove</button>
+            </div>
           </div>
         );
         })}
@@ -610,6 +735,7 @@ function MinistryTab({ church }) {
 function NotesTab({ church }) {
   const { refresh } = useDb();
   const [adding, setAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [body, setBody] = useState('');
   const [pinned, setPinned] = useState(false);
   const [internalOnly, setInternalOnly] = useState(false);
@@ -617,15 +743,18 @@ function NotesTab({ church }) {
 
   const save = () => {
     if (!body.trim()) return;
-    addNote({ churchId: church.id, body: body.trim(), pinned, internalOnly });
-    setBody(''); setPinned(false); setInternalOnly(false); setAdding(false);
+    if (editingId) {
+      const note = db.churchNotes.find(item => item.id === editingId);
+      if (note) { Object.assign(note, { body: body.trim(), pinned, internalOnly }); saveRecord('churchNotes', note); }
+    } else addNote({ churchId: church.id, body: body.trim(), pinned, internalOnly });
+    setBody(''); setPinned(false); setInternalOnly(false); setEditingId(null); setAdding(false);
     refresh();
   };
 
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button className="btn primary" onClick={() => setAdding(a => !a)}><IconPlus stroke={2} /> Add note</button>
+        <button className="btn primary" onClick={() => { setEditingId(null); setBody(''); setPinned(false); setInternalOnly(false); setAdding(a => !a); }}><IconPlus stroke={2} /> Add note</button>
       </div>
       {adding && (
         <div className="card card-pad" style={{ marginBottom: 10 }}>
@@ -643,7 +772,7 @@ function NotesTab({ church }) {
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button className="btn" onClick={() => setAdding(false)}>Cancel</button>
-            <button className="btn primary" onClick={save}>Save note</button>
+            <button className="btn primary" onClick={save}>{editingId ? 'Update note' : 'Save note'}</button>
           </div>
         </div>
       )}
@@ -659,6 +788,10 @@ function NotesTab({ church }) {
                 {note.internalOnly && <Badge label="Internal only" variant="amber" />}
                 <span>{author?.name} · {fmtDate(note.createdAt)}</span>
               </div>
+              <div className="pc-actions">
+                <button className="btn sm" onClick={() => { setEditingId(note.id); setBody(note.body); setPinned(note.pinned); setInternalOnly(note.internalOnly); setAdding(true); }}><IconPencil /> Edit</button>
+                <button className="btn sm danger" onClick={() => { removeProfileRecord('churchNotes', note.id); refresh(); }}><IconTrash /> Remove</button>
+              </div>
             </div>
           );
         })}
@@ -670,27 +803,24 @@ function NotesTab({ church }) {
 function TasksTab({ church }) {
   const { refresh } = useDb();
   const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({ title: '', dueDate: '', priority: 'medium' });
   const tasks = getTasksByChurch(church.id).slice().sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''));
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
   const save = () => {
     if (!form.title.trim()) return;
-    addTask({
-      churchId: church.id,
-      title: form.title.trim(),
-      dueDate: form.dueDate || null,
-      priority: form.priority,
-    });
+    const fields = { churchId: church.id, title: form.title.trim(), dueDate: form.dueDate || null, priority: form.priority };
+    if (editingId) updateTask(editingId, fields); else addTask(fields);
     setForm({ title: '', dueDate: '', priority: 'medium' });
-    setIsAdding(false);
+    setEditingId(null); setIsAdding(false);
     refresh();
   };
 
   return (
     <>
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
-        <button className="btn primary" onClick={() => setIsAdding(a => !a)}><IconPlus stroke={2} /> Add task</button>
+        <button className="btn primary" onClick={() => { setEditingId(null); setForm({ title: '', dueDate: '', priority: 'medium' }); setIsAdding(a => !a); }}><IconPlus stroke={2} /> Add task</button>
       </div>
 
       {isAdding && (
@@ -715,7 +845,7 @@ function TasksTab({ church }) {
           </div>
           <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
             <button className="btn" onClick={() => setIsAdding(false)}>Cancel</button>
-            <button className="btn primary" onClick={save}>Save task</button>
+            <button className="btn primary" onClick={save}>{editingId ? 'Update task' : 'Save task'}</button>
           </div>
         </div>
       )}
@@ -728,7 +858,7 @@ function TasksTab({ church }) {
         <div className="card" style={{ overflow: 'hidden' }}>
           <table className="data-table">
             <thead>
-              <tr><th /><th>Task</th><th>Assigned to</th><th>Due date</th><th>Priority</th><th>Status</th></tr>
+              <tr><th /><th>Task</th><th>Assigned to</th><th>Due date</th><th>Priority</th><th>Status</th><th /></tr>
             </thead>
             <tbody>
               {tasks.map(task => {
@@ -746,6 +876,7 @@ function TasksTab({ church }) {
                     <td className="cell-muted">{task.dueDate ? fmtDate(task.dueDate) : '—'}</td>
                     <td><Badge label={priority.label} variant={priority.variant} /></td>
                     <td><Badge label={status.label} variant={status.variant} /></td>
+                    <td><div className="pc-actions"><button className="btn sm" onClick={() => { setEditingId(task.id); setForm({ title: task.title, dueDate: task.dueDate || '', priority: task.priority || 'medium' }); setIsAdding(true); }}><IconPencil /></button><button className="btn sm danger" onClick={() => { removeProfileRecord('tasks', task.id); refresh(); }}><IconTrash /></button></div></td>
                   </tr>
                 );
               })}
@@ -764,6 +895,7 @@ export default function ChurchProfile({ churchId }) {
   const isModal = !!churchId;
   const [tab, setTab] = useState('Overview');
   const [logging, setLogging] = useState(false);
+  const [editingInteraction, setEditingInteraction] = useState(null);
   const [editing, setEditing] = useState(false);
   const church = getChurchById(id);
 
@@ -780,14 +912,6 @@ export default function ChurchProfile({ churchId }) {
   const givingStatus = GIVING_STATUS[giving.givingStatus];
   const coordinator = church.assignedCoordinatorId ? getUserById(church.assignedCoordinatorId) : null;
   const activeMinistries = getMinistryByChurch(church.id).filter(m => m.status === 'active').length;
-  const primaryContact = getContactsByChurch(church.id)[0] || null;
-  const latestInteraction = getInteractionsByChurch(church.id)[0] || null;
-  const nextTask = getTasksByChurch(church.id)
-    .filter(task => task.status !== 'completed')
-    .sort((a, b) => (a.dueDate || '9999-12-31').localeCompare(b.dueDate || '9999-12-31'))[0] || null;
-  const attendance = Number(church.attendanceMin) || Number(church.attendanceMax)
-    ? `${Number(church.attendanceMin) || '?'}–${Number(church.attendanceMax) || '?'} attendance`
-    : 'Attendance unknown';
 
   return (
     <>
@@ -807,7 +931,7 @@ export default function ChurchProfile({ churchId }) {
           </div>
           <div className="ph-meta">
             <span><IconMapPin stroke={1.75} /> {church.city}, {church.state}</span>
-            <span><IconUsers stroke={1.75} /> {attendance}</span>
+            <span><IconUsers stroke={1.75} /> {church.attendanceMin}–{church.attendanceMax} attendance</span>
             <span><IconCalendar stroke={1.75} /> Last interaction {fmtDate(church.lastInteractionDate)}</span>
             <span><IconUserCircle stroke={1.75} /> {coordinator ? coordinator.name : 'No advocate'}</span>
           </div>
@@ -817,12 +941,6 @@ export default function ChurchProfile({ churchId }) {
         </div>
       </div>
       <ArloSummary churchId={church.id} />
-      <section className="profile-essentials" aria-label="Relationship summary">
-        <div><small>Primary contact</small><strong>{primaryContact?.name || 'No primary contact added'}</strong><span>{primaryContact?.title || 'Add a contact in Staff'}</span></div>
-        <div><small>Latest interaction</small><strong>{latestInteraction ? fmtDate(latestInteraction.date) : 'No contact recorded'}</strong><span>{latestInteraction?.notes || 'Log the first conversation'}</span></div>
-        <div><small>Next action</small><strong>{nextTask?.title || 'No follow-up scheduled'}</strong><span>{nextTask?.dueDate ? `Due ${fmtDate(nextTask.dueDate)}` : 'Create a task to make the next step clear'}</span></div>
-        <button className="btn primary" type="button" onClick={() => setLogging(true)}><IconPlus stroke={1.75} /> Log interaction</button>
-      </section>
       <div className="tab-nav">
         {TABS.map(t => (
           <button key={t} className={`tab-btn ${tab === t ? 'active' : ''}`} onClick={() => setTab(t)}>{t}</button>
@@ -830,13 +948,15 @@ export default function ChurchProfile({ churchId }) {
       </div>
       {tab === 'Overview' && <OverviewTab church={church} />}
       {tab === 'Advocate' && <AdvocateTab church={church} />}
+      {tab === 'Care Communities' && <CareCommunityTab church={church} />}
       {tab === 'Staff' && <StaffTab church={church} />}
       {tab === 'Notable Congregants' && <NotableCongregrantsTab church={church} />}
-      {tab === 'Interactions' && <TimelineTab church={church} onLog={() => setLogging(true)} />}
+      {tab === 'Interactions' && <TimelineTab church={church} onLog={() => setLogging(true)} onEdit={setEditingInteraction} />}
       {tab === 'Ministry' && <MinistryTab church={church} />}
       {tab === 'Notes' && <NotesTab church={church} />}
       {tab === 'Tasks' && <TasksTab church={church} />}
       {logging && <LogInteractionModal churchId={church.id} onClose={() => setLogging(false)} />}
+      {editingInteraction && <LogInteractionModal churchId={church.id} interaction={editingInteraction} onClose={() => setEditingInteraction(null)} />}
       {editing && <ChurchForm church={church} onSave={() => { setEditing(false); refresh(); }} onCancel={() => setEditing(false)} />}
     </>
   );

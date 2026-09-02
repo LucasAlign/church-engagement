@@ -56,7 +56,6 @@ const ACTION_BADGE = {
   update: { label: 'Update', variant: 'blue' },
   unchanged: { label: 'No change', variant: 'gray' },
   error: { label: 'Skipped', variant: 'red' },
-  review: { label: 'Review', variant: 'amber' },
 };
 
 const rowKey = (group, item) => `${group.sheetName}:${item.idx}`;
@@ -95,7 +94,7 @@ export function ImportModal({ onClose }) {
 
   const toggleGroup = group => {
     const keys = group.items
-      .filter(i => i.action === 'new' || i.action === 'update' || i.action === 'review')
+      .filter(i => i.action === 'new' || i.action === 'update')
       .map(i => rowKey(group, i));
     const allOn = keys.every(k => selected.has(k));
     setSelected(prev => {
@@ -171,7 +170,7 @@ export function ImportModal({ onClose }) {
             <span className="text-secondary" style={{ fontSize: 12 }}>
               {group.error || `${group.items.length} ${group.items.length === 1 ? 'row' : 'rows'}`}
             </span>
-            {group.entity && group.items.some(i => i.action === 'new' || i.action === 'update' || i.action === 'review') && (
+            {group.entity && group.items.some(i => i.action === 'new' || i.action === 'update') && (
               <button className="btn sm" style={{ marginLeft: 'auto' }} onClick={() => toggleGroup(group)}>
                 Toggle all
               </button>
@@ -183,7 +182,7 @@ export function ImportModal({ onClose }) {
                 {group.items.map(item => {
                   const key = rowKey(group, item);
                   const badge = ACTION_BADGE[item.action];
-                  const selectable = item.action === 'new' || item.action === 'update' || item.action === 'review';
+                  const selectable = item.action === 'new' || item.action === 'update';
                   return (
                     <tr key={key}>
                       <td style={{ width: 32 }}>
@@ -201,7 +200,6 @@ export function ImportModal({ onClose }) {
                         {item.action === 'update' && `Changes: ${item.changes.join(', ')}`}
                         {item.action === 'error' && item.reason}
                         {item.action === 'new' && item.churchName && `New church: ${item.churchName}`}
-                        {item.action === 'review' && item.reason}
                       </td>
                     </tr>
                   );
@@ -213,8 +211,4 @@ export function ImportModal({ onClose }) {
       ))}
     </Modal>
   );
-}
-
-export default function ImportExportModals({ mode, onClose }) {
-  return mode === 'import' ? <ImportModal onClose={onClose} /> : <ExportModal onClose={onClose} />;
 }

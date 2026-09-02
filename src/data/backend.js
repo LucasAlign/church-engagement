@@ -67,3 +67,14 @@ export async function saveRecord(collection, record) {
     return { ok: false, error };
   }
 }
+
+export async function deleteRecord(collection, id) {
+  if (!apiEnabled) return { ok: true };
+  try {
+    await request(`/data/${encodeURIComponent(collection)}/${encodeURIComponent(id)}`, { method: 'DELETE' });
+    return { ok: true };
+  } catch (error) {
+    console.error(`Deleting ${collection}/${id} failed:`, error.message);
+    return { ok: false, error };
+  }
+}

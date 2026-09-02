@@ -30,7 +30,7 @@ const TYPE_HINTS = [
 
 const FOLLOWUP_HINTS = /\b(follow up|follow-up|circle back|next week|send (her|him|them|over)|schedule|call back|get back to|will email|set up)\b/i;
 
-export function captureInteraction({ rawText, churchId }) {
+export function captureInteraction({ rawText, churchId: _churchId }) {
   const model = MODELS.HAIKU;
   const system = 'You turn a coordinator\'s freeform note into a structured interaction record. '
     + 'Pick the single best interaction type, keep the notes clean and factual, and suggest a '

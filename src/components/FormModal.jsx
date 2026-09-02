@@ -1,5 +1,4 @@
 import { IconX } from '@tabler/icons-react';
-import { useEffect, useId } from 'react';
 
 export default function FormModal({
   title,
@@ -10,13 +9,6 @@ export default function FormModal({
   onCancel,
   isLoading = false,
 }) {
-  const titleId = useId();
-  const fieldPrefix = useId();
-  useEffect(() => {
-    const onKeyDown = event => { if (event.key === 'Escape' && !isLoading) onCancel(); };
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
-  }, [isLoading, onCancel]);
   const handleFieldChange = (key, value) => {
     onChange(key, value);
   };
@@ -40,9 +32,6 @@ export default function FormModal({
     >
       <div
         className="modal-content"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
         onClick={e => e.stopPropagation()}
         style={{
           backgroundColor: 'white',
@@ -64,13 +53,12 @@ export default function FormModal({
             borderBottom: '1px solid var(--border)',
           }}
         >
-          <h2 id={titleId} style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
+          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600 }}>
             {title}
           </h2>
           <button
-            type="button"
-            aria-label="Close"
             onClick={onCancel}
+            aria-label="Close"
             style={{
               background: 'none',
               border: 'none',
@@ -91,7 +79,6 @@ export default function FormModal({
           {fields.map(field => (
             <div key={field.key} style={{ marginBottom: 16 }}>
               <label
-                htmlFor={`${fieldPrefix}-${field.key}`}
                 style={{
                   display: 'block',
                   marginBottom: 6,
@@ -106,13 +93,10 @@ export default function FormModal({
               </label>
               {field.type === 'textarea' ? (
                 <textarea
-                  id={`${fieldPrefix}-${field.key}`}
                   value={formData[field.key] || ''}
                   onChange={e => handleFieldChange(field.key, e.target.value)}
                   placeholder={field.placeholder}
                   disabled={isLoading}
-                  aria-invalid={!!field.error}
-                  aria-describedby={field.error ? `${fieldPrefix}-${field.key}-error` : undefined}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
@@ -127,13 +111,11 @@ export default function FormModal({
                   }}
                 />
               ) : field.type === 'select' ? (
+                <>
                 <select
-                  id={`${fieldPrefix}-${field.key}`}
-                  value={formData[field.key] || ''}
+                  value={field.allowCustom && formData[field.key] && !field.options?.some(opt => opt.value === formData[field.key]) ? "__custom__" : (formData[field.key] || "")}
                   onChange={e => handleFieldChange(field.key, e.target.value)}
                   disabled={isLoading}
-                  aria-invalid={!!field.error}
-                  aria-describedby={field.error ? `${fieldPrefix}-${field.key}-error` : undefined}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
@@ -146,22 +128,37 @@ export default function FormModal({
                     cursor: isLoading ? 'not-allowed' : 'auto',
                   }}
                 >
+                  <option value="">{field.placeholder || 'Select an option'}</option>
                   {field.options && field.options.map(opt => (
                     <option key={opt.value} value={opt.value}>
                       {opt.label}
                     </option>
                   ))}
+                  {field.allowCustom && <option value="__custom__">Other — enter a custom value</option>}
                 </select>
+                {field.allowCustom && formData[field.key] && !field.options?.some(opt => opt.value === formData[field.key]) && (
+                  <input
+                    autoFocus
+                    type="text"
+                    value={formData[field.key] === "__custom__" ? "" : formData[field.key]}
+                    onChange={e => handleFieldChange(field.key, e.target.value)}
+                    placeholder="Enter custom value"
+                    disabled={isLoading}
+                    style={{
+                      width: "100%", marginTop: 8, padding: "8px 12px",
+                      border: "1px solid var(--border)", borderRadius: 6,
+                      fontSize: 14, fontFamily: "inherit", boxSizing: "border-box",
+                    }}
+                  />
+                )}
+                </>
               ) : (
                 <input
-                  id={`${fieldPrefix}-${field.key}`}
                   type={field.type || 'text'}
                   value={formData[field.key] || ''}
                   onChange={e => handleFieldChange(field.key, e.target.value)}
                   placeholder={field.placeholder}
                   disabled={isLoading}
-                  aria-invalid={!!field.error}
-                  aria-describedby={field.error ? `${fieldPrefix}-${field.key}-error` : undefined}
                   style={{
                     width: '100%',
                     padding: '8px 12px',
@@ -174,11 +171,6 @@ export default function FormModal({
                     cursor: isLoading ? 'not-allowed' : 'auto',
                   }}
                 />
-              )}
-              {field.error && (
-                <div id={`${fieldPrefix}-${field.key}-error`} role="alert" style={{ color: 'var(--red-500)', fontSize: 12, marginTop: 4 }}>
-                  {field.error}
-                </div>
               )}
             </div>
           ))}
@@ -195,7 +187,7 @@ export default function FormModal({
           }}
         >
           <button
-            type="button"
+            className="btn"
             onClick={onCancel}
             disabled={isLoading}
             style={{
@@ -212,7 +204,7 @@ export default function FormModal({
             Cancel
           </button>
           <button
-            type="button"
+            className="btn primary"
             onClick={onSave}
             disabled={isLoading}
             style={{

@@ -1,7 +1,7 @@
 // helpers.js — derived values over the mock db.
 // Mutations update this cache and write through to the Replit API.
 import db from './db.js';
-import { saveRecord } from './backend.js';
+import { deleteRecord, saveRecord } from './backend.js';
 
 export const TODAY = new Date().toISOString().slice(0, 10);
 
@@ -108,6 +108,15 @@ export function updateCongregantContact(id) {
   const c = db.notableCongregants.find(x => x.id === id);
   if (c) { c.lastContactDate = new Date().toISOString().slice(0, 10); saveRecord('notableCongregants', c); }
 }
+export function removeProfileRecord(collection, id) {
+  const allowed = ['contacts', 'interactions', 'ministryEngagements', 'churchNotes', 'tasks', 'notableCongregants', 'advocates', 'careCommunities'];
+  if (!allowed.includes(collection)) return;
+  const index = db[collection].findIndex(record => record.id === id);
+  if (index < 0) return;
+  db[collection].splice(index, 1);
+  void deleteRecord(collection, id);
+  notifyDb();
+}
 
 // A task counts as overdue if flagged, or still open/in progress past its due date.
 export function isTaskOverdue(task) {
@@ -167,9 +176,14 @@ export function addContact({ churchId, name, position, email, phone, kfaRole, pr
 export function updateContact(id, fields) {
   const c = db.contacts.find(x => x.id === id); if (c) { Object.assign(c, fields); saveRecord('contacts', c); } notifyDb();
 }
-export function addCareCommunity({ churchId, name, status, startDate, notes }) {
+export function getCareCommunitiesByChurch(churchId) {
+  return (db.careCommunities || []).filter(community => community.churchId === churchId);
+}
+export function addCareCommunity({ churchId, name, status, lead, familyServed, startDate, members, notes }) {
   if (!db.careCommunities) db.careCommunities = [];
-  const rec = { id: genId('cc'), churchId, name, status: status || 'forming', startDate: startDate || null, notes: notes || null, createdAt: TODAY };
+  const rec = { id: genId('cc'), churchId, name, status: status || 'forming', lead: lead || null,
+    familyServed: familyServed || null, startDate: startDate || null, members: members || [],
+    notes: notes || null, createdAt: TODAY };
   db.careCommunities.push(rec); saveRecord('careCommunities', rec); notifyDb();
 }
 export function updateCareCommunity(id, fields) {

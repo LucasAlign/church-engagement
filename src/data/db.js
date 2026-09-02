@@ -1,5 +1,5 @@
 // db.js — in-memory database
-// Hydrated from the Replit backend at startup.
+// Replace each collection with a Supabase table of the same shape.
 const db = {
   churches: [],
   contacts: [],

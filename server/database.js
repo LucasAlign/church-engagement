@@ -49,6 +49,10 @@ export function createDatabase(connectionString = process.env.DATABASE_URL, env 
       );
     },
 
+    async delete(collection, id) {
+      await pool.query('delete from records where collection = $1 and id = $2', [collection, id]);
+    },
+
     async deleteAll() {
       await pool.query('truncate table records');
     },

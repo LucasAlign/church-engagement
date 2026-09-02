@@ -39,6 +39,16 @@ export function createApp(database, { staticRoot, auth = createAuthMiddleware() 
       return next(error);
     }
   });
+  app.delete('/api/data/:collection/:id', async (request, response, next) => {
+    try {
+      const { collection, id } = request.params;
+      if (!COLLECTIONS.has(collection)) return response.status(404).json({ error: 'Unknown collection' });
+      await database.delete(collection, id);
+      return response.status(204).end();
+    } catch (error) {
+      return next(error);
+    }
+  });
 
   if (staticRoot) {
     app.use(express.static(staticRoot));

@@ -26,7 +26,6 @@ export function churchContext(churchId) {
   const tasks = getTasksByChurch(churchId);
   const giving = getChurchGivingSummary(churchId);
   const ministries = getMinistryByChurch(churchId).filter(m => m.status === 'active');
-  const coordinator = church.assignedCoordinatorId ? getUserById(church.assignedCoordinatorId) : null;
   return {
     name: church.name,
     county: church.county,
