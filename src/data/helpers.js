@@ -197,6 +197,28 @@ export function addChurch({ name, address, city, state, zip, phone, email, websi
 export function updateChurch(id, fields) {
   const c = db.churches.find(x => x.id === id); if (c) { Object.assign(c, fields); saveRecord('churches', c); } notifyDb();
 }
+// Delete a church and every record that hangs off it. Removes the rows from
+// the in-memory db immediately, then tells the server to cascade-delete.
+export function removeChurch(id) {
+  const idx = db.churches.findIndex(c => c.id === id);
+  if (idx < 0) return;
+  db.churches.splice(idx, 1);
+  const children = [
+    'contacts', 'interactions', 'tasks', 'givingRecords', 'ministryEngagements',
+    'careCommunities', 'advocates', 'connections', 'impactReports', 'churchNotes',
+    'notableCongregants',
+  ];
+  for (const collection of children) {
+    const rows = db[collection];
+    if (!rows) continue;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      if (rows[i].churchId === id) rows.splice(i, 1);
+    }
+  }
+  fetch('/api/churches/' + id, { method: 'DELETE' })
+    .catch(error => console.error('Deleting church ' + id + ' failed:', error));
+  notifyDb();
+}
 export function addMinistryEngagement({ churchId, ministry, status, startDate, notes }) {
   const rec = { id: genId('min'), churchId, ministry, status: status || 'exploring', startDate: startDate || null, notes: notes || null };
   db.ministryEngagements.push(rec); saveRecord('ministryEngagements', rec); notifyDb();
