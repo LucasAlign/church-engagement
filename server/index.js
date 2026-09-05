@@ -215,6 +215,28 @@ app.put('/api/collections/careCommunities/:id', async (req, res, next) => {
   }
 });
 
+// Giving record upsert — church-profile Giving tab. Mirrors the giving_records
+// columns the mapGivingRecord() reader expects.
+app.put('/api/collections/givingRecords/:id', async (req, res, next) => {
+  const giving = req.body;
+  if (!giving.churchId) return res.status(400).json({ error: 'churchId is required' });
+  if (!giving.date) return res.status(400).json({ error: 'date is required' });
+  try {
+    await pool.query(
+      `INSERT INTO giving_records (id, church_id, date, amount, fund, type)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (id) DO UPDATE SET
+         church_id = EXCLUDED.church_id, date = EXCLUDED.date, amount = EXCLUDED.amount,
+         fund = EXCLUDED.fund, type = EXCLUDED.type`,
+      [giving.id, giving.churchId, giving.date, giving.amount ?? 0,
+       giving.fund || null, giving.type || 'one_time']
+    );
+    res.status(204).end();
+  } catch (err) {
+    next(err);
+  }
+});
+
 // Task upsert used by the dashboard add/edit/complete actions.
 app.put('/api/collections/tasks/:id', async (req, res, next) => {
   const task = req.body;
@@ -250,6 +272,7 @@ const PROFILE_RECORD_TABLES = {
   contacts: 'contacts', interactions: 'interactions',
   ministryEngagements: 'ministry_engagements', churchNotes: 'church_notes', tasks: 'tasks',
   advocates: 'advocates', careCommunities: 'care_communities',
+  givingRecords: 'giving_records',
 };
 app.delete('/api/profile-records/:collection/:id', async (req, res, next) => {
   const table = PROFILE_RECORD_TABLES[req.params.collection];
@@ -304,6 +327,14 @@ async function start() {
     start_date date,
     members jsonb NOT NULL DEFAULT '[]'::jsonb,
     notes text
+  )`);
+  await pool.query(`CREATE TABLE IF NOT EXISTS giving_records (
+    id text PRIMARY KEY,
+    church_id text,
+    date date,
+    amount numeric,
+    fund text,
+    type text
   )`);
   await pool.query(
     `UPDATE users SET name = 'Admin', role = 'Administrator', email = 'admin@keyfam.org', initials = 'A'
