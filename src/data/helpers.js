@@ -100,7 +100,7 @@ export function getCongregantsByChurch(churchId) {
   return db.notableCongregants.filter(c => c.churchId === churchId);
 }
 export function removeProfileRecord(collection, id) {
-  const allowed = ['contacts', 'interactions', 'ministryEngagements', 'churchNotes', 'tasks', 'notableCongregants', 'advocates', 'careCommunities'];
+  const allowed = ['contacts', 'interactions', 'ministryEngagements', 'churchNotes', 'tasks', 'notableCongregants', 'advocates', 'careCommunities', 'givingRecords'];
   if (!allowed.includes(collection)) return;
   const records = db[collection];
   const index = records.findIndex(record => record.id === id);
@@ -204,8 +204,8 @@ export function addMinistryEngagement({ churchId, ministry, status, startDate, n
 export function updateMinistryEngagement(id, fields) {
   const m = db.ministryEngagements.find(x => x.id === id); if (m) { Object.assign(m, fields); saveRecord('ministryEngagements', m); } notifyDb();
 }
-export function addGivingRecord({ churchId, date, amount, type, notes }) {
-  const rec = { id: genId('giv'), churchId, date, amount: parseFloat(amount) || 0, type: type || 'one_time', notes: notes || null };
+export function addGivingRecord({ churchId, date, amount, type, fund }) {
+  const rec = { id: genId('giv'), churchId, date, amount: parseFloat(amount) || 0, type: type || 'one_time', fund: fund || null };
   db.givingRecords.push(rec); saveRecord('givingRecords', rec); notifyDb();
 }
 export function updateGivingRecord(id, fields) {

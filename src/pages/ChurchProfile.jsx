@@ -13,9 +13,10 @@ import {
   getLastContactForContact, contactStatus,
   getAdvocatesByChurch, addAdvocate, updateAdvocate, addMinistryEngagement, updateMinistryEngagement, addTask, updateTask, removeProfileRecord,
   getCareCommunitiesByChurch, addCareCommunity, updateCareCommunity,
+  addGivingRecord, updateGivingRecord,
 } from '../data/helpers.js';
 import {
-  ENGAGEMENT_STATUS, GIVING_STATUS, INTERACTION_TYPE, MINISTRY_TYPE,
+  ENGAGEMENT_STATUS, GIVING_STATUS, GIVING_TYPE, INTERACTION_TYPE, MINISTRY_TYPE,
   MINISTRY_STATUS, TASK_PRIORITY, TASK_STATUS, KFA_ROLE, PREFERRED_CONTACT,
   CONGREGANT_CATEGORY, ADVOCATE_ROLE, ADVOCATE_STATUS, CARE_COMMUNITY_STATUS, fmtDate, fmtMoney,
 } from '../data/labels.js';
@@ -28,7 +29,7 @@ import db from '../data/db.js';
 import { saveRecord } from '../data/backend.js';
 import { validateContact, validateCongregant } from '../data/validation.js';
 
-const TABS = ['Overview', 'Advocate', 'Care Communities', 'Staff', 'Notable Congregants', 'Interactions', 'Ministry', 'Notes', 'Tasks'];
+const TABS = ['Overview', 'Advocate', 'Care Communities', 'Staff', 'Notable Congregants', 'Interactions', 'Ministry', 'Giving', 'Notes', 'Tasks'];
 
 function StaffForm({ contact, churchId, onSave, onCancel }) {
   const [formData, setFormData] = useState(contact || { churchId });
@@ -723,6 +724,120 @@ function MinistryTab({ church }) {
   );
 }
 
+function GivingTab({ church }) {
+  const { refresh } = useDb();
+  const [isAdding, setIsAdding] = useState(false);
+  const [editingId, setEditingId] = useState(null);
+  const emptyForm = { date: '', amount: '', type: 'one_time', fund: '' };
+  const [form, setForm] = useState(emptyForm);
+  const summary = getChurchGivingSummary(church.id);
+  const givingStatus = GIVING_STATUS[summary.givingStatus];
+  const records = [...summary.records].sort((a, b) => (a.date < b.date ? 1 : -1));
+
+  const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
+  const startEdit = (g) => {
+    setEditingId(g.id);
+    setForm({ date: g.date || '', amount: g.amount != null ? String(g.amount) : '', type: g.type || 'one_time', fund: g.fund || '' });
+    setIsAdding(true);
+  };
+  const save = () => {
+    if (!form.date || form.amount === '') return;
+    const fields = {
+      churchId: church.id,
+      date: form.date,
+      amount: parseFloat(form.amount) || 0,
+      type: form.type,
+      fund: form.fund.trim() || null,
+    };
+    if (editingId) updateGivingRecord(editingId, fields);
+    else addGivingRecord(fields);
+    setForm(emptyForm);
+    setEditingId(null);
+    setIsAdding(false);
+    refresh();
+  };
+
+  return (
+    <>
+      <div className="grid-2" style={{ gridTemplateColumns: 'repeat(4, 1fr)', marginBottom: 12 }}>
+        <MetricCard label="Lifetime giving" value={fmtMoney(summary.total)} />
+        <MetricCard label="This year" value={fmtMoney(summary.thisYearTotal)} />
+        <MetricCard label="Last year" value={fmtMoney(summary.lastYearTotal)} />
+        <MetricCard label="Avg. gift" value={fmtMoney(summary.avg)} />
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+        <Badge label={givingStatus.label} variant={givingStatus.variant} />
+        <button className="btn primary" onClick={() => { setEditingId(null); setForm(emptyForm); setIsAdding(a => !a); }}><IconPlus stroke={2} /> Add gift</button>
+      </div>
+
+      {isAdding && (
+        <div className="card card-pad profile-form" style={{ marginBottom: 12 }}>
+          <div className="form-grid">
+            <div className="field">
+              <label className="field-label">Date</label>
+              <input type="date" className="select" value={form.date} onChange={e => set('date', e.target.value)} />
+            </div>
+            <div className="field">
+              <label className="field-label">Amount</label>
+              <input type="number" min="0" step="0.01" className="select" value={form.amount} onChange={e => set('amount', e.target.value)} placeholder="0.00" />
+            </div>
+            <div className="field">
+              <label className="field-label">Type</label>
+              <select className="select" value={form.type} onChange={e => set('type', e.target.value)}>
+                {Object.entries(GIVING_TYPE).map(([k, v]) => (
+                  <option key={k} value={k}>{v.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="field">
+              <label className="field-label">Fund</label>
+              <input className="select" value={form.fund} onChange={e => set('fund', e.target.value)} placeholder="optional (e.g. General Fund)" />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
+            <button className="btn" onClick={() => { setIsAdding(false); setEditingId(null); }}>Cancel</button>
+            <button className="btn primary" onClick={save}>{editingId ? 'Update gift' : 'Save gift'}</button>
+          </div>
+        </div>
+      )}
+
+      {!records.length && !isAdding && (
+        <div className="card"><EmptyState icon={IconHeartHandshake} title="No giving recorded yet" sub="Add the first gift for this church." /></div>
+      )}
+
+      {records.length > 0 && (
+        <div className="card">
+          <table className="data-table">
+            <thead>
+              <tr><th>Date</th><th>Amount</th><th>Type</th><th>Fund</th><th></th></tr>
+            </thead>
+            <tbody>
+              {records.map(g => {
+                const type = GIVING_TYPE[g.type] || { label: g.type || '—', variant: 'gray' };
+                return (
+                  <tr key={g.id}>
+                    <td>{fmtDate(g.date)}</td>
+                    <td>{fmtMoney(g.amount)}</td>
+                    <td><Badge label={type.label} variant={type.variant} /></td>
+                    <td>{g.fund || '—'}</td>
+                    <td>
+                      <div className="pc-actions">
+                        <button className="btn sm" onClick={() => startEdit(g)}><IconPencil /> Edit</button>
+                        <button className="btn sm danger" onClick={() => { removeProfileRecord('givingRecords', g.id); refresh(); }}><IconTrash /> Remove</button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+}
+
 function NotesTab({ church }) {
   const { refresh } = useDb();
   const [adding, setAdding] = useState(false);
@@ -943,6 +1058,7 @@ export default function ChurchProfile({ churchId }) {
       {tab === 'Notable Congregants' && <NotableCongregrantsTab church={church} />}
       {tab === 'Interactions' && <TimelineTab church={church} onLog={() => setLogging(true)} onEdit={setEditingInteraction} />}
       {tab === 'Ministry' && <MinistryTab church={church} />}
+      {tab === 'Giving' && <GivingTab church={church} />}
       {tab === 'Notes' && <NotesTab church={church} />}
       {tab === 'Tasks' && <TasksTab church={church} />}
       {logging && <LogInteractionModal churchId={church.id} onClose={() => setLogging(false)} />}
