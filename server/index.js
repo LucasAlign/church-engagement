@@ -268,6 +268,31 @@ app.delete('/api/tasks/:id', async (req, res, next) => {
   }
 });
 
+// Delete a church and everything that references it. Children first, church
+// last, all in one transaction so a failure can't orphan rows.
+app.delete('/api/churches/:id', async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const childTables = [
+      'contacts', 'interactions', 'tasks', 'giving_records', 'ministry_engagements',
+      'care_communities', 'advocates', 'impact_reports', 'church_notes',
+    ];
+    for (const table of childTables) {
+      await client.query('DELETE FROM ' + table + ' WHERE church_id = $1', [req.params.id]);
+    }
+    const deleted = await client.query('DELETE FROM churches WHERE id = $1 RETURNING id', [req.params.id]);
+    await client.query('COMMIT');
+    if (!deleted.rows.length) return res.status(404).json({ error: 'church not found' });
+    res.status(204).end();
+  } catch (err) {
+    await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client.release();
+  }
+});
+
 const PROFILE_RECORD_TABLES = {
   contacts: 'contacts', interactions: 'interactions',
   ministryEngagements: 'ministry_engagements', churchNotes: 'church_notes', tasks: 'tasks',
