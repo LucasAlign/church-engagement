@@ -5,12 +5,24 @@ import express from 'express';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import Anthropic from '@anthropic-ai/sdk';
 import { pool } from './db.js';
 import {
   mapUser, mapChurch, mapContact, mapInteraction, mapTask,
   mapGivingRecord, mapMinistryEngagement, mapImpactReport, mapChurchNote,
   mapAdvocate, mapCareCommunity,
 } from './transform.js';
+
+// Claude client for the AI features. Created lazily so the app still boots
+// (and every non-AI route works) when no key is configured.
+const AI_MODEL = process.env.AI_MODEL || 'claude-opus-5';
+let anthropic = null;
+function getAnthropic() {
+  if (anthropic) return anthropic;
+  if (!process.env.ANTHROPIC_API_KEY) return null;
+  anthropic = new Anthropic();
+  return anthropic;
+}
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const root = path.join(__dirname, '..');
@@ -267,6 +279,100 @@ app.delete('/api/tasks/:id', async (req, res, next) => {
     next(err);
   }
 });
+
+// AI: turn a free-text interaction note into structured, actionable
+// suggestions (a recap, follow-up tasks, a possible engagement-status change,
+// and any people mentioned). Nothing here writes to the DB — the client
+// decides which suggestions to apply.
+app.post('/api/ai/interaction-actions', async (req, res, next) => {
+  const client = getAnthropic();
+  if (!client) {
+    return res.status(503).json({ error: 'AI is not configured. Set ANTHROPIC_API_KEY in the environment.' });
+  }
+  const { churchId, notes, type, date } = req.body || {};
+  if (!notes || !notes.trim()) {
+    return res.status(400).json({ error: 'notes are required' });
+  }
+
+  // Pull light church context so the model reasons about the right record.
+  let churchName = 'this church';
+  let currentStatus = 'unknown';
+  try {
+    if (churchId) {
+      const r = await pool.query('SELECT name, engagement_status FROM churches WHERE id = $1', [churchId]);
+      if (r.rows.length) { churchName = r.rows[0].name; currentStatus = r.rows[0].engagement_status; }
+    }
+  } catch { /* non-fatal — proceed with defaults */ }
+
+  const system = [
+    'You are an assistant inside a church-engagement CRM used by ministry coordinators.',
+    'Given a coordinator\'s free-text note about an interaction with a church, extract structured, useful follow-ups.',
+    'Be concise and practical. Only suggest tasks that the note actually implies — do not invent work.',
+    'Respond with ONLY a single JSON object (no markdown, no code fences) matching exactly this shape:',
+    '{',
+    '  "summary": string,                         // one or two sentence recap of what happened',
+    '  "tasks": [{ "title": string, "priority": "low"|"medium"|"high"|"critical", "dueInDays": number|null }],',
+    '  "statusSuggestion": { "value": "partnering"|"potential"|"unreached"|"unable_to_sign", "reason": string } | null,',
+    '  "people": [{ "name": string, "role": string|null }]  // people mentioned who might be church staff/contacts',
+    '}',
+    'Rules: tasks is [] if none are implied. statusSuggestion is null unless the note clearly signals the relationship changed from its current state. people is [] if none are named. dueInDays is null when no timing is implied.',
+  ].join('\n');
+
+  const userMsg = [
+    `Church: ${churchName}`,
+    `Current engagement status: ${currentStatus}`,
+    type ? `Interaction type: ${type}` : null,
+    date ? `Date: ${date}` : null,
+    '',
+    'Note:',
+    notes.trim(),
+  ].filter(Boolean).join('\n');
+
+  try {
+    const message = await client.messages.create({
+      model: AI_MODEL,
+      max_tokens: 1500,
+      system,
+      messages: [{ role: 'user', content: userMsg }],
+    });
+    const text = message.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
+    // Be forgiving if the model wraps the JSON in prose or fences.
+    const jsonStr = extractJson(text);
+    let parsed;
+    try {
+      parsed = JSON.parse(jsonStr);
+    } catch {
+      return res.status(502).json({ error: 'Could not parse AI response.' });
+    }
+    res.json({
+      summary: typeof parsed.summary === 'string' ? parsed.summary : '',
+      tasks: Array.isArray(parsed.tasks) ? parsed.tasks : [],
+      statusSuggestion: parsed.statusSuggestion || null,
+      people: Array.isArray(parsed.people) ? parsed.people : [],
+    });
+  } catch (err) {
+    next(err);
+  }
+});
+
+// Pull the first balanced JSON object out of a string (handles code fences or
+// stray prose around it). Falls back to the trimmed input.
+function extractJson(text) {
+  const start = text.indexOf('{');
+  if (start < 0) return text;
+  let depth = 0, inStr = false, esc = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inStr) {
+      if (esc) esc = false;
+      else if (ch === '\\') esc = true;
+      else if (ch === '"') inStr = false;
+    } else if (ch === '"') inStr = true;
+    else if (ch === '{') depth++;
+    else if (ch === '}') { depth--; if (depth === 0) return text.slice(start, i + 1); }
+  }
+  return text.slice(start);
+}
 
 // Delete a church and everything that references it. Children first, church
 // last, all in one transaction so a failure can't orphan rows.
