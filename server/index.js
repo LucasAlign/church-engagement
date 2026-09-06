@@ -5,7 +5,7 @@ import express from 'express';
 import http from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import Anthropic from '@anthropic-ai/sdk';
+import OpenAI from 'openai';
 import { pool } from './db.js';
 import {
   mapUser, mapChurch, mapContact, mapInteraction, mapTask,
@@ -13,15 +13,16 @@ import {
   mapAdvocate, mapCareCommunity,
 } from './transform.js';
 
-// Claude client for the AI features. Created lazily so the app still boots
-// (and every non-AI route works) when no key is configured.
-const AI_MODEL = process.env.AI_MODEL || 'claude-opus-5';
-let anthropic = null;
-function getAnthropic() {
-  if (anthropic) return anthropic;
-  if (!process.env.ANTHROPIC_API_KEY) return null;
-  anthropic = new Anthropic();
-  return anthropic;
+// OpenAI client for the AI features. Created lazily so the app still boots
+// (and every non-AI route works) when no key is configured. The model is
+// configurable via AI_MODEL — set it to whatever your key can access.
+const AI_MODEL = process.env.AI_MODEL || 'gpt-5.4-mini';
+let openai = null;
+function getAI() {
+  if (openai) return openai;
+  if (!process.env.OPENAI_API_KEY) return null;
+  openai = new OpenAI();
+  return openai;
 }
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -285,9 +286,9 @@ app.delete('/api/tasks/:id', async (req, res, next) => {
 // and any people mentioned). Nothing here writes to the DB — the client
 // decides which suggestions to apply.
 app.post('/api/ai/interaction-actions', async (req, res, next) => {
-  const client = getAnthropic();
+  const client = getAI();
   if (!client) {
-    return res.status(503).json({ error: 'AI is not configured. Set ANTHROPIC_API_KEY in the environment.' });
+    return res.status(503).json({ error: 'AI is not configured. Set OPENAI_API_KEY in the environment.' });
   }
   const { churchId, notes, type, date } = req.body || {};
   if (!notes || !notes.trim()) {
@@ -329,14 +330,17 @@ app.post('/api/ai/interaction-actions', async (req, res, next) => {
   ].filter(Boolean).join('\n');
 
   try {
-    const message = await client.messages.create({
+    const completion = await client.chat.completions.create({
       model: AI_MODEL,
-      max_tokens: 1500,
-      system,
-      messages: [{ role: 'user', content: userMsg }],
+      max_completion_tokens: 1500,
+      response_format: { type: 'json_object' },
+      messages: [
+        { role: 'system', content: system },
+        { role: 'user', content: userMsg },
+      ],
     });
-    const text = message.content.filter(b => b.type === 'text').map(b => b.text).join('').trim();
-    // Be forgiving if the model wraps the JSON in prose or fences.
+    const text = (completion.choices?.[0]?.message?.content || '').trim();
+    // JSON mode should return clean JSON, but stay forgiving just in case.
     const jsonStr = extractJson(text);
     let parsed;
     try {
