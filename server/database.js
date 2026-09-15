@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { migrateLegacyData } from './legacy-data.js';
 
 const { Pool } = pg;
 export const COLLECTIONS = new Set([
@@ -28,6 +29,8 @@ export function createDatabase(connectionString = process.env.DATABASE_URL, env 
         )
       `);
       await pool.query('create index if not exists records_collection_idx on records (collection)');
+      const migrated = await migrateLegacyData(pool);
+      if (migrated > 0) console.log(`Migrated ${migrated} legacy database records.`);
     },
 
     async readAll() {

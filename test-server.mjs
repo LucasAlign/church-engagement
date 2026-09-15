@@ -1,5 +1,6 @@
 import { createApp } from './server/app.js';
 import { createAuthMiddleware } from './server/security.js';
+import { migrateLegacyData } from './server/legacy-data.js';
 
 const writes = [];
 const database = {
@@ -16,6 +17,53 @@ const check = (condition, message) => {
   console.log(`${condition ? 'PASS' : 'FAIL'}: ${message}`);
   if (!condition) failures += 1;
 };
+
+const migratedRecords = [];
+const legacyRows = {
+  churches: [{
+    id: 'ch_legacy', name: 'Updated Legacy Church', attendance_min: 75,
+    engagement_status: 'potential', last_interaction_date: '2026-09-14',
+    has_care_community: true, kfa_associations: ['mentoring'],
+  }],
+  contacts: [{ id: 'con_legacy', church_id: 'ch_legacy', name: 'Updated Contact', position: 'Pastor' }],
+  users: [{ id: 'usr_legacy', name: 'Coordinator', email: 'coordinator@example.test' }],
+};
+const migrationPool = {
+  async query(sql, params = []) {
+    const normalized = String(sql).replace(/\s+/g, ' ').trim().toLowerCase();
+    if (normalized.includes('select count(*)::int as count from records')) return { rows: [{ count: 0 }] };
+    if (normalized.includes('from information_schema.tables')) {
+      return { rows: Object.keys(legacyRows).map(table_name => ({ table_name })) };
+    }
+    const tableMatch = normalized.match(/^select \* from "([a-z_]+)"/);
+    if (tableMatch) return { rows: legacyRows[tableMatch[1]] || [] };
+    if (normalized.startsWith('insert into records')) {
+      migratedRecords.push({ collection: params[0], id: params[1], data: JSON.parse(params[2]) });
+    }
+    return { rows: [] };
+  },
+};
+
+const migrated = await migrateLegacyData(migrationPool);
+const migratedChurch = migratedRecords.find(record => record.collection === 'churches')?.data;
+check(migrated === 3, 'empty records store imports every legacy row');
+check(
+  migratedChurch?.name === 'Updated Legacy Church'
+    && migratedChurch.attendanceMin === 75
+    && migratedChurch.lastInteractionDate === '2026-09-14',
+  'legacy database columns are mapped to the frontend record shape',
+);
+
+let queriedLegacyTables = false;
+const skipped = await migrateLegacyData({
+  async query(sql) {
+    const normalized = String(sql).replace(/\s+/g, ' ').trim().toLowerCase();
+    if (normalized.includes('select count(*)::int as count from records')) return { rows: [{ count: 1 }] };
+    if (normalized.includes('from information_schema.tables')) queriedLegacyTables = true;
+    return { rows: [] };
+  },
+});
+check(skipped === 0 && !queriedLegacyTables, 'existing records are never overwritten by the legacy import');
 
 try {
   let response = await fetch(`${base}/api/health`);
