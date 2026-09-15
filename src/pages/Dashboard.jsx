@@ -2,11 +2,11 @@ import { lazy, Suspense, useState, useRef, useEffect } from 'react';
 import {
   IconSearch, IconMapPin, IconChevronRight, IconRefresh, IconX,
   IconBuildingChurch, IconCheckbox, IconAlertCircle, IconPlus,
-  IconUpload, IconDownload,
+  IconUpload, IconDownload, IconTrash,
 } from '@tabler/icons-react';
 import db from '../data/db.js';
 import {
-  contactStatus, isTaskOverdue, addTask, toggleTaskCompleted, TODAY,
+  contactStatus, isTaskOverdue, addTask, toggleTaskCompleted, removeChurch, TODAY,
 } from '../data/helpers.js';
 import { getRelationshipSignals, parseDirectoryQuestion } from '../data/agentic.js';
 import { fmtDate, ENGAGEMENT_STATUS, ENGAGEMENT_STATUS_FILTERS, TASK_PRIORITY } from '../data/labels.js';
@@ -136,6 +136,7 @@ function ChurchProfileModal({ churchId, onClose }) {
 }
 
 function DatabaseWidget({ statusFilter, setStatusFilter }) {
+  const { refresh } = useDb();
   const [search, setSearch] = useState('');
   const [question, setQuestion] = useState('');
   const [smartFilter, setSmartFilter] = useState(null);
@@ -274,7 +275,7 @@ function DatabaseWidget({ statusFilter, setStatusFilter }) {
             <SortHeader field="name" label="CHURCH" sortField={sortField} sortDir={sortDir} onSort={toggleSort} />
             <th>STATUS</th>
             <SortHeader field="lastContact" label="LAST CONTACT" sortField={sortField} sortDir={sortDir} onSort={toggleSort} />
-            <th style={{ width: 32 }} />
+            <th style={{ width: 64 }} />
           </tr>
         </thead>
         <tbody>
@@ -297,8 +298,24 @@ function DatabaseWidget({ statusFilter, setStatusFilter }) {
                       : <span className="cell-muted">Never</span>}
                   </span>
                 </td>
-                <td>
-                  <IconChevronRight stroke={1.5} style={{ width: 14, height: 14, color: 'var(--text-tertiary)', display: 'block' }} />
+                <td onClick={e => e.stopPropagation()}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 4, justifyContent: 'flex-end' }}>
+                    <button
+                      className="btn sm danger"
+                      style={{ padding: '4px 6px' }}
+                      title={`Delete ${r.name}`}
+                      aria-label={`Delete ${r.name}`}
+                      onClick={() => {
+                        if (window.confirm(`Delete "${r.name}"? This also removes all of its contacts, interactions, giving, ministry, notes and tasks. This can't be undone.`)) {
+                          removeChurch(r.id);
+                          refresh();
+                        }
+                      }}
+                    >
+                      <IconTrash stroke={1.75} style={{ width: 14, height: 14, display: 'block' }} />
+                    </button>
+                    <IconChevronRight stroke={1.5} style={{ width: 14, height: 14, color: 'var(--text-tertiary)', display: 'block' }} />
+                  </div>
                 </td>
               </tr>
             );

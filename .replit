@@ -1,5 +1,30 @@
 run = "npm run dev:full"
 
 [deployment]
-build = "npm run build"
-run = "npm start"
+deploymentTarget = "autoscale"
+build = ["npm", "run", "build"]
+run = ["npm", "run", "start"]
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "npm run dev:full"
+waitForPort = 3000
+
+[workflows.workflow.metadata]
+outputType = "webview"

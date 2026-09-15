@@ -109,7 +109,7 @@ export function updateCongregantContact(id) {
   if (c) { c.lastContactDate = new Date().toISOString().slice(0, 10); saveRecord('notableCongregants', c); }
 }
 export function removeProfileRecord(collection, id) {
-  const allowed = ['contacts', 'interactions', 'ministryEngagements', 'churchNotes', 'tasks', 'notableCongregants', 'advocates', 'careCommunities'];
+  const allowed = ['contacts', 'interactions', 'ministryEngagements', 'churchNotes', 'tasks', 'notableCongregants', 'advocates', 'careCommunities', 'givingRecords'];
   if (!allowed.includes(collection)) return;
   const index = db[collection].findIndex(record => record.id === id);
   if (index < 0) return;
@@ -216,6 +216,31 @@ export function addChurch({ name, address, city, state, zip, phone, email, websi
 export function updateChurch(id, fields) {
   const c = db.churches.find(x => x.id === id); if (c) { Object.assign(c, fields); saveRecord('churches', c); } notifyDb();
 }
+// Delete a church and every record that hangs off it from both the local cache
+// and the generic records API.
+export function removeChurch(id) {
+  const idx = db.churches.findIndex(c => c.id === id);
+  if (idx < 0) return;
+  db.churches.splice(idx, 1);
+  const deletes = [deleteRecord('churches', id)];
+  const children = [
+    'contacts', 'interactions', 'tasks', 'givingRecords', 'ministryEngagements',
+    'careCommunities', 'advocates', 'connections', 'impactReports', 'churchNotes',
+    'notableCongregants',
+  ];
+  for (const collection of children) {
+    const rows = db[collection];
+    if (!rows) continue;
+    for (let i = rows.length - 1; i >= 0; i--) {
+      if (rows[i].churchId === id) {
+        deletes.push(deleteRecord(collection, rows[i].id));
+        rows.splice(i, 1);
+      }
+    }
+  }
+  void Promise.all(deletes);
+  notifyDb();
+}
 export function addMinistryEngagement({ churchId, ministry, status, startDate, notes }) {
   const rec = { id: genId('min'), churchId, ministry, status: status || 'exploring', startDate: startDate || null, notes: notes || null };
   db.ministryEngagements.push(rec); saveRecord('ministryEngagements', rec); notifyDb();
@@ -223,8 +248,8 @@ export function addMinistryEngagement({ churchId, ministry, status, startDate, n
 export function updateMinistryEngagement(id, fields) {
   const m = db.ministryEngagements.find(x => x.id === id); if (m) { Object.assign(m, fields); saveRecord('ministryEngagements', m); } notifyDb();
 }
-export function addGivingRecord({ churchId, date, amount, type, notes }) {
-  const rec = { id: genId('giv'), churchId, date, amount: parseFloat(amount) || 0, type: type || 'one_time', notes: notes || null };
+export function addGivingRecord({ churchId, date, amount, type, fund }) {
+  const rec = { id: genId('giv'), churchId, date, amount: parseFloat(amount) || 0, type: type || 'one_time', fund: fund || null };
   db.givingRecords.push(rec); saveRecord('givingRecords', rec); notifyDb();
 }
 export function updateGivingRecord(id, fields) {
@@ -236,6 +261,12 @@ export function addTask({ churchId, title, dueDate, priority, status, assignedTo
 }
 export function updateTask(id, fields) {
   const t = db.tasks.find(x => x.id === id); if (t) { Object.assign(t, fields); saveRecord('tasks', t); } notifyDb();
+}
+export function deleteTask(id) {
+  removeProfileRecord('tasks', id);
+}
+export function getTaskCompletedAt(task) {
+  return task.completedAt || null;
 }
 export function addImpactReport({ churchId, year, fileUrl, notes }) {
   const rec = { id: genId('rpt'), churchId, year, fileUrl: fileUrl || null, notes: notes || null, createdAt: TODAY };
@@ -269,5 +300,6 @@ export function toggleTaskCompleted(taskId) {
   const task = db.tasks.find(t => t.id === taskId);
   if (!task) return;
   task.status = task.status === 'completed' ? 'open' : 'completed';
+  task.completedAt = task.status === 'completed' ? new Date().toISOString() : null;
   saveRecord('tasks', task);
 }
