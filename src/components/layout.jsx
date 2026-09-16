@@ -134,29 +134,32 @@ export function Header({ title, subtitle, actions }) {
 }
 
 function BackendBanner() {
-  const { backend, backendError, saveFailure, retrySave, dismissSaveFailure } = useDb();
-  if (saveFailure) {
+  const { backend, persistence, retryPendingSaves } = useDb();
+  if (persistence.pending > 0) {
     return (
       <div className="backend-banner backend-banner-error" role="alert">
-        <span>Could not save {saveFailure.collection}: {saveFailure.message}</span>
+        <span>
+          {persistence.pending} {persistence.pending === 1 ? 'change is' : 'changes are'}{' '}
+          {persistence.durable
+            ? `stored safely on this device${persistence.error ? ' and will retry automatically.' : ' and syncing…'}`
+            : 'waiting to save. Keep this page open and retry now.'}
+        </span>
         <span className="backend-banner-actions">
-          <button className="btn sm" type="button" onClick={retrySave}>Retry</button>
-          <button className="btn sm" type="button" onClick={dismissSaveFailure}>Dismiss</button>
+          <button className="btn sm" type="button" onClick={retryPendingSaves}>Retry now</button>
         </span>
       </div>
     );
+  }
+  if (persistence.state === 'saving') {
+    return <div className="backend-banner" role="status">Saving changes…</div>;
+  }
+  if (persistence.state === 'saved') {
+    return <div className="backend-banner backend-banner-saved" role="status">All changes saved.</div>;
   }
   if (backend === 'demo') {
     return (
       <div className="backend-banner backend-banner-demo">
         Demo mode — changes are not saved. Connect the Replit database to enable persistence.
-      </div>
-    );
-  }
-  if (backend === 'error') {
-    return (
-      <div className="backend-banner backend-banner-error">
-        Could not load the database. Changes are disabled until the connection is restored. ({backendError})
       </div>
     );
   }

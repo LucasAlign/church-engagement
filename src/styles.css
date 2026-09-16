@@ -163,6 +163,38 @@ button { font-family: inherit; }
 
 .page { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
 
+.backend-banner {
+  min-height: 34px;
+  padding: 7px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  background: var(--blue-bg);
+  border-bottom: 0.5px solid var(--border);
+}
+.backend-banner-error { color: #7d2f2f; background: var(--red-bg); }
+.backend-banner-demo { color: #765015; background: var(--amber-bg); }
+.backend-banner-saved { color: #176149; background: var(--green-bg); }
+.backend-banner-actions { display: inline-flex; gap: 6px; }
+
+.backend-splash {
+  min-height: 100%;
+  padding: 32px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  text-align: center;
+  color: var(--text-secondary);
+  background: var(--bg-page);
+}
+.backend-splash-error strong { font-size: 18px; color: var(--text); }
+.backend-splash-error span { max-width: 520px; }
+
 .page-header {
   display: flex;
   align-items: flex-start;
