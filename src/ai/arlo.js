@@ -176,7 +176,7 @@ export function draftFollowUp({ churchId }) {
         'Let me know what works and I\'ll send an invite.',
         '',
         'Warmly,',
-        'KeyFam1 Church Engagement',
+        'Engage',
       ].join('\n');
       return { model, text, channel: 'email' };
     },

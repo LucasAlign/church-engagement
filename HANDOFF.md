@@ -1,6 +1,6 @@
-# Flock — Current Handoff
+# Engage — Current Handoff
 
-Flock is a React/Vite church engagement CRM backed by an Express API and
+Engage is a React/Vite church engagement CRM backed by an Express API and
 Replit-managed PostgreSQL.
 
 ## Current architecture

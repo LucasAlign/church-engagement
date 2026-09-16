@@ -1,4 +1,4 @@
-# Flock — Church Engagement CRM
+# Engage — Church Engagement CRM
 
 React/Vite frontend with an Express API and Replit-managed PostgreSQL backend.
 The browser keeps a synchronous in-memory cache for fast UI updates; every
@@ -52,7 +52,7 @@ npm start            # serve API and built frontend
 To remove every persisted application record while preserving the schema:
 
 ```sh
-CONFIRM_WIPE=WIPE_FLOCK_DATA npm run db:wipe
+CONFIRM_WIPE=WIPE_ENGAGE_DATA npm run db:wipe
 ```
 
 Run that command once in the Replit Shell before importing replacement data.

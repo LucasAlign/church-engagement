@@ -1,6 +1,6 @@
 # Overview
 
-Flock is a church engagement CRM for Keystone Family Alliance.
+Engage is a church engagement CRM for Keystone Family Alliance.
 
 # System Architecture
 

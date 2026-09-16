@@ -10,7 +10,7 @@ const database = createDatabase();
 await database.initialize();
 
 const server = createApp(database, { staticRoot: path.join(root, 'dist'), auth: createAuthMiddleware() })
-  .listen(port, '0.0.0.0', () => console.log(`Flock listening on port ${port}`));
+  .listen(port, '0.0.0.0', () => console.log(`Engage listening on port ${port}`));
 
 const shutdown = () => server.close(async () => { await database.close(); process.exit(0); });
 process.on('SIGTERM', shutdown);

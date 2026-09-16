@@ -3,7 +3,7 @@ import AxeBuilder from '@axe-core/playwright';
 
 test('dashboard loads and has no serious accessibility violations', async ({ page }) => {
   await page.goto('/');
-  await expect(page).toHaveTitle(/Flock/i);
+  await expect(page).toHaveTitle(/Engage/i);
   await expect(page.getByRole('main')).toBeVisible();
   const results = await new AxeBuilder({ page }).analyze();
   expect(results.violations.filter(item => ['critical', 'serious'].includes(item.impact))).toEqual([]);
