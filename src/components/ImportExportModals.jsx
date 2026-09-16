@@ -218,3 +218,9 @@ export function ImportModal({ onClose }) {
     </Modal>
   );
 }
+
+export default function ImportExportModals({ mode, onClose }) {
+  return mode === 'import'
+    ? <ImportModal onClose={onClose} />
+    : <ExportModal onClose={onClose} />;
+}
