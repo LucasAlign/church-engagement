@@ -15,6 +15,7 @@ import {
   getAdvocatesByChurch, addAdvocate, updateAdvocate, addMinistryEngagement, updateMinistryEngagement, addTask, updateTask, removeProfileRecord,
   getCareCommunitiesByChurch, addCareCommunity, updateCareCommunity,
   addGivingRecord, updateGivingRecord,
+  getAnnualImpactSnapshot, saveAnnualImpactReport, TODAY,
 } from '../data/helpers.js';
 import {
   ENGAGEMENT_STATUS, GIVING_STATUS, GIVING_TYPE, INTERACTION_TYPE, MINISTRY_TYPE,
@@ -30,7 +31,7 @@ import db from '../data/db.js';
 import { saveRecord } from '../data/backend.js';
 import { validateContact, validateCongregant } from '../data/validation.js';
 
-const TABS = ['Overview', 'Advocate', 'Care Communities', 'Staff', 'Notable Congregants', 'Interactions', 'Ministry', 'Giving', 'Notes', 'Tasks'];
+const TABS = ['Overview', 'Advocate', 'Care Communities', 'Staff', 'Notable Congregants', 'Interactions', 'Ministry', 'Giving', 'Impact Report', 'Notes', 'Tasks'];
 
 function ArloSummary({ churchId }) {
   const [text, setText] = useState('');
@@ -1003,6 +1004,89 @@ function TasksTab({ church }) {
   );
 }
 
+function ImpactReportTab({ church }) {
+  const { refresh } = useDb();
+  const currentYear = Number(TODAY.slice(0, 4));
+  const [year, setYear] = useState(currentYear - 1);
+  const initial = getAnnualImpactSnapshot(church.id, currentYear - 1).report;
+  const [summary, setSummary] = useState(initial?.summary || initial?.notes || '');
+  const [highlights, setHighlights] = useState(initial?.highlights || '');
+  const [saved, setSaved] = useState(false);
+  const snapshot = getAnnualImpactSnapshot(church.id, year);
+
+  const changeYear = value => {
+    const nextYear = Number(value);
+    const next = getAnnualImpactSnapshot(church.id, nextYear).report;
+    setYear(nextYear);
+    setSummary(next?.summary || next?.notes || '');
+    setHighlights(next?.highlights || '');
+    setSaved(false);
+  };
+
+  const save = () => {
+    if (!summary.trim()) return;
+    saveAnnualImpactReport({ churchId: church.id, year, summary: summary.trim(), highlights: highlights.trim() });
+    setSaved(true);
+    refresh();
+  };
+
+  return (
+    <>
+      <div className="impact-profile-heading">
+        <div>
+          <h3 className="section-title">Annual impact report</h3>
+          <p>Engagement categories are calculated automatically from this church’s records.</p>
+        </div>
+        <label className="report-year-picker">
+          <span>Reporting year</span>
+          <select className="select" value={year} onChange={event => changeYear(event.target.value)}>
+            {Array.from({ length: 6 }, (_, index) => currentYear - index).map(option => <option key={option}>{option}</option>)}
+          </select>
+        </label>
+      </div>
+      <div className="metric-grid impact-category-grid">
+        <MetricCard label="Interactions" value={snapshot.interactions} sub={`Recorded in ${year}`} />
+        <MetricCard label="Active ministries" value={snapshot.ministries} sub="Active by year end" />
+        <MetricCard label="Care communities" value={snapshot.careCommunities} sub="Active by year end" />
+        <MetricCard label="Active advocates" value={snapshot.advocates} sub="Current active advocates" />
+        <MetricCard label="Giving" value={fmtMoney(snapshot.giving)} sub={`Recorded in ${year}`} />
+      </div>
+      <div className="card card-pad impact-report-editor">
+        <div className="impact-editor-status">
+          <div className="card-title">Church impact summary</div>
+          <Badge label={snapshot.report ? 'Complete' : 'Not completed'} variant={snapshot.report ? 'green' : 'amber'} />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor={`impact-summary-${church.id}`}>Annual summary*</label>
+          <textarea
+            id={`impact-summary-${church.id}`}
+            className="select"
+            rows={5}
+            value={summary}
+            onChange={event => { setSummary(event.target.value); setSaved(false); }}
+            placeholder="Describe the church’s impact this year, including people or families served."
+          />
+        </div>
+        <div className="field">
+          <label className="field-label" htmlFor={`impact-highlights-${church.id}`}>Highlights and stories</label>
+          <textarea
+            id={`impact-highlights-${church.id}`}
+            className="select"
+            rows={4}
+            value={highlights}
+            onChange={event => { setHighlights(event.target.value); setSaved(false); }}
+            placeholder="Capture notable outcomes, stories, and milestones."
+          />
+        </div>
+        <div className="impact-editor-actions">
+          {saved && <span role="status">Saved to the {year} coordinator report.</span>}
+          <button className="btn primary" type="button" onClick={save} disabled={!summary.trim()}>Save annual report</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function ChurchProfile({ churchId }) {
   const { refresh } = useDb();
   const params = useParams();
@@ -1069,6 +1153,7 @@ export default function ChurchProfile({ churchId }) {
       {tab === 'Interactions' && <TimelineTab church={church} onLog={() => setLogging(true)} onEdit={setEditingInteraction} />}
       {tab === 'Ministry' && <MinistryTab church={church} />}
       {tab === 'Giving' && <GivingTab church={church} />}
+      {tab === 'Impact Report' && <ImpactReportTab church={church} />}
       {tab === 'Notes' && <NotesTab church={church} />}
       {tab === 'Tasks' && <TasksTab church={church} />}
       {logging && <LogInteractionModal churchId={church.id} onClose={() => setLogging(false)} />}

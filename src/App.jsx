@@ -5,6 +5,7 @@ import Dashboard from './pages/Dashboard.jsx';
 
 const ChurchProfile = lazy(() => import('./pages/ChurchProfile.jsx'));
 const Analytics = lazy(() => import('./pages/Analytics.jsx'));
+const ImpactReports = lazy(() => import('./pages/ImpactReports.jsx'));
 const Settings = lazy(() => import('./pages/Settings.jsx'));
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/churches/:id" element={<ChurchProfile />} />
+          <Route path="/reports" element={<ImpactReports />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/settings" element={<Settings />} />
         </Routes>

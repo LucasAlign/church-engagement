@@ -96,6 +96,53 @@ export function getContactById(id) {
 export function getCongregantsByChurch(churchId) {
   return db.notableCongregants.filter(c => c.churchId === churchId);
 }
+
+export function getImpactReport(churchId, year) {
+  return db.impactReports
+    .filter(report => report.churchId === churchId && Number(report.year) === Number(year))
+    .sort((a, b) => String(b.updatedAt || b.uploadedAt || b.createdAt || '').localeCompare(String(a.updatedAt || a.uploadedAt || a.createdAt || '')))[0] || null;
+}
+
+export function getMissingReports(year) {
+  return db.churches.filter(church => !getImpactReport(church.id, year));
+}
+
+export function getAnnualImpactSnapshot(churchId, year) {
+  const numericYear = Number(year);
+  const start = `${numericYear}-01-01`;
+  const end = `${numericYear}-12-31`;
+  const inYear = date => Boolean(date && date >= start && date <= end);
+  const activeByYearEnd = item => item.status === 'active' && (!item.startDate || item.startDate <= end);
+  const giving = db.givingRecords.filter(item => item.churchId === churchId && inYear(item.date));
+
+  return {
+    church: getChurchById(churchId),
+    year: numericYear,
+    report: getImpactReport(churchId, numericYear),
+    interactions: db.interactions.filter(item => item.churchId === churchId && inYear(item.date)).length,
+    giving: giving.reduce((total, item) => total + (Number(item.amount) || 0), 0),
+    ministries: db.ministryEngagements.filter(item => item.churchId === churchId && activeByYearEnd(item)).length,
+    careCommunities: db.careCommunities.filter(item => item.churchId === churchId && activeByYearEnd(item)).length,
+    advocates: db.advocates.filter(item => item.churchId === churchId && item.status === 'active').length,
+  };
+}
+
+export function compileAnnualImpactReport(year) {
+  const churches = db.churches
+    .map(church => getAnnualImpactSnapshot(church.id, year))
+    .sort((a, b) => a.church.name.localeCompare(b.church.name));
+  return {
+    year: Number(year),
+    churches,
+    completed: churches.filter(item => item.report).length,
+    missing: churches.filter(item => !item.report).length,
+    interactions: churches.reduce((total, item) => total + item.interactions, 0),
+    giving: churches.reduce((total, item) => total + item.giving, 0),
+    ministries: churches.reduce((total, item) => total + item.ministries, 0),
+    careCommunities: churches.reduce((total, item) => total + item.careCommunities, 0),
+    advocates: churches.reduce((total, item) => total + item.advocates, 0),
+  };
+}
 export function addCongregant({ churchId, name, title, category, email, phone, notes, lastContactDate }) {
   const rec = {
     id: genId('cng'), churchId, name, title, category, email: email || null,
@@ -268,12 +315,21 @@ export function deleteTask(id) {
 export function getTaskCompletedAt(task) {
   return task.completedAt || null;
 }
-export function addImpactReport({ churchId, year, fileUrl, notes }) {
-  const rec = { id: genId('rpt'), churchId, year, fileUrl: fileUrl || null, notes: notes || null, createdAt: TODAY };
+export function addImpactReport({ churchId, year, fileUrl, notes, summary, highlights }) {
+  const rec = { id: genId('rpt'), churchId, year: Number(year), fileUrl: fileUrl || null, notes: notes || null, summary: summary || null, highlights: highlights || null, createdAt: TODAY, updatedAt: TODAY };
   db.impactReports.push(rec); saveRecord('impactReports', rec); notifyDb();
+  return rec.id;
 }
 export function replaceImpactReport(id, fields) {
-  const r = db.impactReports.find(x => x.id === id); if (r) { Object.assign(r, fields); saveRecord('impactReports', r); } notifyDb();
+  const r = db.impactReports.find(x => x.id === id); if (r) { Object.assign(r, fields, { updatedAt: TODAY }); saveRecord('impactReports', r); } notifyDb();
+}
+export function saveAnnualImpactReport({ churchId, year, summary, highlights }) {
+  const existing = getImpactReport(churchId, year);
+  if (existing) {
+    replaceImpactReport(existing.id, { summary: summary || null, highlights: highlights || null });
+    return existing.id;
+  }
+  return addImpactReport({ churchId, year, summary, highlights });
 }
 export function updateUser(id, fields) {
   const u = db.users.find(x => x.id === id); if (u) { Object.assign(u, fields); saveRecord('users', u); } notifyDb();

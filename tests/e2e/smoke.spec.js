@@ -109,3 +109,25 @@ test('leadership report is an editable draft and is never auto-sent', async ({ p
   await expect(page.getByLabel('Editable draft')).toBeVisible();
   await expect(page.getByText('This draft is not sent automatically.')).toBeVisible();
 });
+
+test('coordinator can complete a church impact report and see it in the yearly compilation', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: /add church/i }).click();
+  const churchForm = page.locator('.church-form-modal');
+  await churchForm.getByLabel('Church name').fill('Impact Community Church');
+  await churchForm.getByLabel('City').selectOption('Reading');
+  await churchForm.getByRole('button', { name: 'Add church' }).evaluate(button => button.click());
+  await page.getByText('Impact Community Church', { exact: true }).click();
+
+  await page.getByRole('button', { name: 'Impact Report', exact: true }).click();
+  await page.getByLabel('Annual summary*').fill('Supported families throughout the county.');
+  await page.getByLabel('Highlights and stories').fill('Launched a new care team.');
+  await page.getByRole('button', { name: 'Save annual report' }).click();
+  await expect(page.getByRole('status')).toContainText('Saved to the');
+
+  await page.keyboard.press('Escape');
+  await page.getByRole('link', { name: 'Impact reports' }).click();
+  const row = page.getByRole('row').filter({ hasText: 'Impact Community Church' });
+  await expect(row).toContainText('Complete');
+  await expect(row).toContainText('Supported families throughout the county.');
+});

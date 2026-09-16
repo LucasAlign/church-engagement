@@ -20,6 +20,7 @@ function EngageLogo() {
 
 const NAV_ITEMS = [
   { to: '/', label: 'Churches', end: true },
+  { to: '/reports', label: 'Impact reports' },
   { to: '/analytics', label: 'Analytics' },
 ];
 

@@ -488,7 +488,7 @@ button { font-family: inherit; }
 .profile-essentials > button { border-radius: 0; }
 @media (max-width: 850px) { .profile-essentials { grid-template-columns: 1fr; } .profile-essentials > button { border-radius: 0; justify-content: center; } }
 
-.tab-nav { display: flex; gap: 2px; border-bottom: 0.5px solid var(--border); margin-bottom: 16px; }
+.tab-nav { display: flex; gap: 2px; border-bottom: 0.5px solid var(--border); margin-bottom: 16px; overflow-x: auto; }
 .tab-btn {
   padding: 9px 14px;
   font-size: 13px;
@@ -541,6 +541,35 @@ button { font-family: inherit; }
 .notes-stack { display: flex; flex-direction: column; gap: 10px; }
 
 /* ---------- impact reports ---------- */
+
+.report-year-picker { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-size: 12px; white-space: nowrap; }
+.report-year-picker .select { width: auto; min-width: 86px; }
+.impact-overview { margin-top: 4px; }
+.impact-compilation { overflow: hidden; }
+.impact-compilation-header { align-items: center; gap: 20px; }
+.impact-progress { width: 180px; height: 6px; overflow: hidden; border-radius: 999px; background: var(--bg-secondary); }
+.impact-progress span { display: block; height: 100%; border-radius: inherit; background: var(--green-400); }
+.impact-summary-preview { max-width: 360px; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.impact-profile-heading { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 12px; }
+.impact-profile-heading .section-title { margin-bottom: 3px; }
+.impact-profile-heading p { color: var(--text-secondary); font-size: 12.5px; }
+.impact-category-grid { grid-template-columns: repeat(5, 1fr); }
+.impact-report-editor { max-width: 760px; }
+.impact-editor-status { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 16px; }
+.impact-editor-actions { display: flex; justify-content: flex-end; align-items: center; gap: 12px; }
+.impact-editor-actions [role="status"] { color: var(--green-600); font-size: 12px; }
+@media (max-width: 1000px) {
+  .impact-category-grid { grid-template-columns: repeat(2, 1fr); }
+  .impact-compilation-header, .impact-profile-heading { align-items: flex-start; flex-direction: column; }
+}
+
+@media print {
+  .top-nav, .backend-banner, .arlo-fab, .page-actions, .report-year-picker { display: none !important; }
+  .main, .page { max-width: none; margin: 0; padding: 0; }
+  .impact-compilation { border: 0; }
+  .impact-compilation .table-wrap { overflow: visible; }
+  .impact-compilation table { font-size: 10px; }
+}
 
 .report-card { display: flex; align-items: center; gap: 14px; padding: 14px 16px; }
 .report-card .rc-icon {

@@ -1,6 +1,7 @@
 import db from './src/data/db.js';
 import {
-  TODAY, addConnection, addInteraction, genId, getChurchGivingSummary,
+  TODAY, addConnection, addInteraction, compileAnnualImpactReport, genId,
+  getChurchGivingSummary, getMissingReports, saveAnnualImpactReport,
 } from './src/data/helpers.js';
 
 let failures = 0;
@@ -35,5 +36,12 @@ db.givingRecords.push(
 );
 const giving = getChurchGivingSummary('ch_1');
 check(giving.thisYearTotal === 150 && giving.lastYearTotal === 75, 'giving totals derive from the current year');
+
+check(getMissingReports(year).length === 1, 'a church without a yearly entry is missing from the impact-report cycle');
+saveAnnualImpactReport({ churchId: 'ch_1', year, summary: 'A year of meaningful community support.' });
+const impact = compileAnnualImpactReport(year);
+check(impact.completed === 1 && impact.missing === 0, 'the annual compilation tracks completed church reports');
+check(impact.interactions === 2 && impact.giving === 150, 'the annual compilation calculates church activity for the selected year');
+check(impact.churches[0].report.summary.includes('meaningful'), 'the annual compilation includes the church-authored summary');
 
 process.exitCode = failures ? 1 : 0;
