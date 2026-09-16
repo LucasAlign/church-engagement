@@ -15,7 +15,7 @@ export function createApp(database, { staticRoot, auth = createAuthMiddleware() 
   if (process.env.NODE_ENV === 'production') app.use(pinoHttp());
   app.use(helmet({ contentSecurityPolicy: { directives: { imgSrc: ["'self'", 'data:'] } } }));
   app.use(compression());
-  app.use(express.json({ limit: '2mb' }));
+  app.use(express.json({ limit: '12mb' }));
 
   app.get('/api/health', (_request, response) => response.json({ ok: true }));
   app.use('/api', rateLimit({ windowMs: 60_000, limit: 120, standardHeaders: 'draft-8', legacyHeaders: false }));
@@ -34,6 +34,26 @@ export function createApp(database, { staticRoot, auth = createAuthMiddleware() 
       const validation = validateRecord(collection, id, request.body?.data);
       if (!validation.ok) return response.status(400).json({ error: validation.error });
       await database.upsert(collection, id, validation.data);
+      return response.status(204).end();
+    } catch (error) {
+      return next(error);
+    }
+  });
+  app.post('/api/data/batch', async (request, response, next) => {
+    try {
+      const records = request.body?.records;
+      if (!Array.isArray(records) || records.length === 0 || records.length > 50_000) {
+        return response.status(400).json({ error: 'A non-empty batch of at most 50,000 records is required' });
+      }
+      const validated = [];
+      for (const entry of records) {
+        const { collection, id } = entry || {};
+        if (!COLLECTIONS.has(collection)) return response.status(404).json({ error: 'Unknown collection' });
+        const validation = validateRecord(collection, id, entry.data);
+        if (!validation.ok) return response.status(400).json({ error: validation.error });
+        validated.push({ collection, id, data: validation.data });
+      }
+      await database.upsertMany(validated);
       return response.status(204).end();
     } catch (error) {
       return next(error);

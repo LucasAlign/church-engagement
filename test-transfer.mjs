@@ -9,7 +9,7 @@ import { ENTITIES, parseImportFile, applyImport } from './src/data/transfer.js';
 Object.assign(db, {
   users: [{ id: 'usr_001', name: 'Sarah Chen', role: 'County Coordinator', email: 's.chen@example.org', county: 'Berks', initials: 'SC' }],
   churches: [{ id: 'ch_test', name: 'Covenant Church', address: null, city: 'Reading', state: 'PA', zip: null, county: null, phone: '(610) 555-0100', email: null, website: null, denomination: null, attendanceMin: null, attendanceMax: null, engagementStatus: 'partnering', firstContactDate: null, lastInteractionDate: null, assignedCoordinatorId: 'usr_001', hasCareCommunity: false }],
-  contacts: [{ id: 'con_test', churchId: 'ch_test', name: 'Pat Pastor', position: 'Pastor', email: null, phone: null, preferredContact: null, kfaRole: null, notes: null, archived: false }],
+  contacts: [{ id: 'con_test', churchId: 'ch_test', name: 'Pat Pastor', title: 'Pastor', email: null, phone: null, preferredContact: null, kfaRole: null, notes: null, archived: false }],
   careCommunities: [{ id: 'cc_test', churchId: 'ch_test', name: 'Care Team', status: 'active', lead: null, familyServed: null, startDate: null, members: [], notes: null }],
   advocates: [{ id: 'adv_test', churchId: 'ch_test', name: 'Alex Advocate', email: null, phone: null, role: null, status: 'active', trainedDate: null, notes: null }],
   connections: [{ id: 'cx_test', churchId: 'ch_test', name: 'Casey Connection', email: null, phone: null, connectionType: 'volunteer', status: 'active', notes: null }],
@@ -91,7 +91,7 @@ const selected = new Set([
   `${staffGroup.sheetName}:${newStaff.idx}`,
 ]);
 const before = db.churches.length;
-const result = applyImport(groups2, selected);
+const result = await applyImport(groups2, selected);
 check(result.created === 2 && result.updated === 1, `apply created 2 / updated 1 (got ${result.created}/${result.updated})`);
 const created = db.churches.find(c => c.name === 'Test Chapel');
 check(!!created && db.churches.length === before + 1, 'new church in db');

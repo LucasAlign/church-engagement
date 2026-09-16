@@ -6,6 +6,7 @@ const writes = [];
 const database = {
   readAll: async () => ({ churches: [{ id: 'ch_1', name: 'Test Church' }] }),
   upsert: async (...args) => { writes.push(args); },
+  upsertMany: async records => { writes.push(['batch', records]); },
 };
 const server = createApp(database).listen(0, '127.0.0.1');
 await new Promise(resolve => server.once('listening', resolve));
@@ -78,6 +79,15 @@ try {
     body: JSON.stringify({ data: { id: 'ch_2', name: 'Saved Church' } }),
   });
   check(response.status === 204 && writes[0][0] === 'churches' && writes[0][1] === 'ch_2', 'valid record is persisted');
+
+  response = await fetch(`${base}/api/data/batch`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ records: [
+      { collection: 'churches', id: 'ch_6', data: { id: 'ch_6', name: 'Batch Church' } },
+      { collection: 'contacts', id: 'con_6', data: { id: 'con_6', churchId: 'ch_6', name: 'Batch Contact' } },
+    ] }),
+  });
+  check(response.status === 204 && writes[1][0] === 'batch' && writes[1][1].length === 2, 'batch import is persisted in one request');
 
   response = await fetch(`${base}/api/data/unknown/id`, {
     method: 'PUT', headers: { 'Content-Type': 'application/json' },

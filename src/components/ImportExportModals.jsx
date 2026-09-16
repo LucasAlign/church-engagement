@@ -104,10 +104,16 @@ export function ImportModal({ onClose }) {
     });
   };
 
-  const apply = () => {
-    const summary = applyImport(groups, selected);
-    refresh();
-    setResult(summary);
+  const apply = async () => {
+    setError(null);
+    try {
+      const summary = await applyImport(groups, selected);
+      refresh();
+      setResult(summary);
+    } catch (err) {
+      refresh();
+      setError(err?.message || 'The import could not be saved. No database changes were applied.');
+    }
   };
 
   if (result) {

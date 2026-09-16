@@ -52,6 +52,28 @@ export function createDatabase(connectionString = process.env.DATABASE_URL, env 
       );
     },
 
+    async upsertMany(records) {
+      const client = await pool.connect();
+      try {
+        await client.query('begin');
+        for (const { collection, id, data } of records) {
+          await client.query(
+            `insert into records (collection, id, data, updated_at)
+             values ($1, $2, $3::jsonb, now())
+             on conflict (collection, id)
+             do update set data = excluded.data, updated_at = now()`,
+            [collection, id, JSON.stringify(data)],
+          );
+        }
+        await client.query('commit');
+      } catch (error) {
+        await client.query('rollback');
+        throw error;
+      } finally {
+        client.release();
+      }
+    },
+
     async delete(collection, id) {
       await pool.query('delete from records where collection = $1 and id = $2', [collection, id]);
     },

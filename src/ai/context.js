@@ -41,7 +41,7 @@ export function churchContext(churchId) {
     },
     activeMinistries: ministries.map(m => MINISTRY_TYPE[m.ministry]),
     openTasks: tasks.filter(t => isTaskOverdue(t) || ['open', 'in_progress'].includes(t.status)),
-    contacts: getContactsByChurch(churchId).map(c => ({ name: c.name, position: c.position })),
+    contacts: getContactsByChurch(churchId).map(c => ({ name: c.name, position: c.title ?? c.position })),
     notes: getNotesByChurch(churchId).filter(n => n.pinned).map(n => n.body),
   };
 }

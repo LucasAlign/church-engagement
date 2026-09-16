@@ -5,7 +5,7 @@
 // confirms before it is applied to the db.
 import * as XLSX from 'xlsx';
 import db from './db.js';
-import { saveRecord } from './backend.js';
+import { initBackend, saveRecords } from './backend.js';
 import { detectTracker, expandTracker } from './trackerImport.js';
 import { genId, TODAY } from './helpers.js';
 import {
@@ -127,7 +127,7 @@ export const ENTITIES = [
     defaults: () => ({ archived: false }),
     fields: [
       field('name', 'Name'),
-      field('position', 'Position'),
+      field('title', 'Position'),
       field('email', 'Email'),
       field('phone', 'Phone'),
       field('preferredContact', 'Preferred Contact', F.enum(PREFERRED_CONTACT)),
@@ -409,9 +409,10 @@ export async function parseImportFile(file) {
 
 // Apply the selected plan rows. Churches go first so child rows that
 // reference a brand-new church by name can resolve its generated id.
-export function applyImport(groups, selected) {
+export async function applyImport(groups, selected) {
   let created = 0;
   let updated = 0;
+  const records = [];
   const ordered = [...groups].sort((a, b) =>
     (a.entity?.key === 'churches' ? -1 : 0) - (b.entity?.key === 'churches' ? -1 : 0));
 
@@ -423,7 +424,7 @@ export function applyImport(groups, selected) {
       if (item.action === 'update') {
         Object.assign(item.existing, item.record);
         if (ent.key === 'churches') item.existing.updatedAt = TODAY;
-        saveRecord(ent.collection, item.existing);
+        records.push({ collection: ent.collection, id: item.existing.id, data: item.existing });
         updated += 1;
       } else if (item.action === 'new' || item.action === 'review') {
         const rec = { id: genId(ent.idPrefix), ...(ent.defaults?.() || {}), ...item.record };
@@ -433,10 +434,15 @@ export function applyImport(groups, selected) {
           if (!rec.churchId) continue;
         }
         db[ent.collection].push(rec);
-        saveRecord(ent.collection, rec);
+        records.push({ collection: ent.collection, id: rec.id, data: rec });
         created += 1;
       }
     }
+  }
+  const saved = await saveRecords(records);
+  if (!saved.ok) {
+    await initBackend().catch(() => {});
+    throw saved.error || new Error('Import could not be saved');
   }
   return { created, updated };
 }

@@ -68,6 +68,20 @@ export async function saveRecord(collection, record) {
   }
 }
 
+export async function saveRecords(records) {
+  if (!apiEnabled) return { ok: true };
+  try {
+    await request('/data/batch', {
+      method: 'POST',
+      body: JSON.stringify({ records }),
+    });
+    return { ok: true };
+  } catch (error) {
+    console.error('Saving imported records failed:', error.message);
+    return { ok: false, error };
+  }
+}
+
 export async function deleteRecord(collection, id) {
   if (!apiEnabled) return { ok: true };
   try {
